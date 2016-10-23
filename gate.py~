@@ -166,8 +166,7 @@ class Gate(object):
 		self.animate_function = f		
 
 	def animate(self,timeval):
-		if self.animate_function != None:
-			self.animate_function(timeval)
+		self.animate_function(timeval)
 		return		         
 
 	def display(self):

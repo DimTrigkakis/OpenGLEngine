@@ -34,7 +34,7 @@ def draw_f2(gid,tid,name):
 	myGate.draw_sphere(20,20)
 	return
 
-menu = [("zoom out",right_click_event),("zoom in",right_click_event_2)]
+#menu = [("zoom out",right_click_event),("zoom in",right_click_event_2)]
 keys = [("Key",'a',a),("KeyUp",'b',bup)]
 textures = ["earth.jpg","sun.jpg","mars.jpg"]
 

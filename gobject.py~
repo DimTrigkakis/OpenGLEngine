@@ -15,8 +15,9 @@ class gObject(object):
 	
 	def transform(self):
 		if self.parent != None:
+			print "PARENT"
 			self.parent.transform()
-
+		print self.location[0],"P"
 		glTranslatef(self.location[0],self.location[1],self.location[2])
 		glRotate(self.rotation[0],1,0,0)
 		glRotate(self.rotation[1],0,1,0)
@@ -25,7 +26,9 @@ class gObject(object):
 	def draw(self):
 		glMatrixMode(GL_MODELVIEW)
 		glPushMatrix()
+		print "ME"
 		if self.parent != None:
+			print "PARENT"
 			self.parent.transform()
 
 		glTranslatef(self.location[0],self.location[1],self.location[2])
