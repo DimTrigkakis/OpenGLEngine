@@ -3,75 +3,319 @@ from OpenGL.GLU import *
 from OpenGL.GL import *
 import sys
 import time
+import random
+from math import *
+from gobject import gObject
+from Image import open
+
+class Camera(object):
+	center = None
+	look = None
+	up = None
 
 class Gate(object):
-	name = 'OGRE'
+
+	name = 'OGRE' # OpenGlRenderingEngine ~ OGRE
 	fps = 60 
-	    
+
+	gobject_list = []
+	colors = []
+
+	Xrot, Yrot, Zrot, Scale, MINSCALE = [0,0,0,2., 0.01]
+
+	menu_function_list = []
+	keys_list = []
+	animate_function = None
+	camera = None
+	gid = 0
+
 	def window_init(self):
-            glutInit(sys.argv)
-            glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
-            glutInitWindowSize(800,800)
-            glutInitWindowPosition(glutGet(GLUT_SCREEN_WIDTH)/2-400,glutGet(GLUT_SCREEN_HEIGHT)/2-400)
-            glutCreateWindow(self.name)
+		glutInit(sys.argv)
+		glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
+		glutInitWindowSize(800,800)
+		glutInitWindowPosition(glutGet(GLUT_SCREEN_WIDTH)/2-400,glutGet(GLUT_SCREEN_HEIGHT)/2-400)
+		glutCreateWindow(self.name)
+	
+	def settings_init(self):
+		
+		glEnable(GL_DEPTH_TEST)
 	
 	def light_init(self):
-            glEnable(GL_DEPTH_TEST)
-            glEnable(GL_LIGHTING)
-            lightZeroPosition = [10.,4.,10.,1.]
-            lightZeroColor = [0.8,1.0,0.8,1.0] #green tinged
-            glLightfv(GL_LIGHT0, GL_POSITION, lightZeroPosition)
-            glLightfv(GL_LIGHT0, GL_DIFFUSE, lightZeroColor)
-            glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.1)
-            glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.05)
-            glEnable(GL_LIGHT0)
+		glEnable(GL_LIGHTING)
+		x,y,z = [0,10,0]
+		lightZeroPosition = [x,y,z,1.]
+		lightZeroColor = [1.0,1.0,1.0,1.0] 
+		glLightfv(GL_LIGHT0, GL_POSITION, lightZeroPosition)
+		glLightfv( GL_LIGHT0, GL_SPOT_DIRECTION,  (-x,-y,-z) );
+		glLightf(  GL_LIGHT0, GL_SPOT_EXPONENT, 1 );
+		glLightf(  GL_LIGHT0, GL_SPOT_CUTOFF, 40.0 );
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, lightZeroColor)
+		glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.1)
+		glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.05)
+		glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0)
+		glEnable(GL_LIGHT0)
+		glEnable( GL_NORMALIZE )
+
 	def camera_init(self):
-            glMatrixMode(GL_PROJECTION)
-            gluPerspective(40.,1.,1.,40.)
-            glMatrixMode(GL_MODELVIEW)
-            gluLookAt(0,0,10,0,0,0,0,1,0)
+		self.camera = Camera()
+		self.camera.center = [0,0,10]
+		self.camera.look = [0,0,0]
+		self.camera.up = [0,1,0]
+		self.set_camera()
 
-	def foundation(self):
-	    self.window_init()
-            self.light_init()
-	    self.camera_init()
-            #glClearColor(0.,0.,0.,1.)
-	    #glShadeModel(GL_SMOOTH)
-	    #glEnable(GL_CULL_FACE)
+	def set_camera(self):
 
-            glutDisplayFunc(self.display)
-	    glutIdleFunc(self.idle)            
-	     
-	    glutMainLoop()
-	    return
+		camera = self.camera
+		glMatrixMode(GL_PROJECTION)
+                glLoadIdentity()
+		gluPerspective(40.,1.,1.,4000.)
+                glMatrixMode(GL_MODELVIEW)
+                glLoadIdentity()
+		gluLookAt(camera.center[0],camera.center[1],camera.center[2],
+                              camera.look[0],camera.look[1],camera.look[2],
+                              camera.up[0],camera.up[1],camera.up[2])
+		
+                glRotatef( self.Yrot, 0., 1., 0. )
+                glRotatef( self.Xrot, 1., 0., 0. )
+		glRotatef( self.Zrot, 0., 0., 1. )
+		glScalef(self.Scale,self.Scale,self.Scale)
 
-	def idle(self):	
-            timemarkA = time.time()
-            glutPostRedisplay()
-            timemarkB = time.time()
-            self.animate(timemarkB-timemarkA)
-        rot = 0
-	def animate(self,timeval):
-	    self.rot += self.fps*timeval
-            print self.fps*timeval
+	def set_menu(self,menu_function_list=None):
+		if menu_function_list == None:
+			return
+
+		self.menu_function_list = list(menu_function_list)
+		menu = glutCreateMenu(self.processMenuEvent)
+		for i,x in enumerate(self.menu_function_list):
+			glutAddMenuEntry(x[0],i)
+		glutAttachMenu(GLUT_RIGHT_BUTTON)
+	
+	def processMenuEvent(self,event):
+		self.menu_function_list[event][1]()
+		return 0 # important		
+	
+	def random_colors(self):
+		for i in range(100):
+			self.colors.append((random.random(),random.random(),random.random()))
+
+	def set_keys(self,keys):
+		self.keys_list = keys
+		glutKeyboardFunc(self.key_functions)
+		glutKeyboardUpFunc(self.key_up_functions)
+
+	def key_functions(self,key,x,y):
+		for i in range(len(self.keys_list)):
+			if key == self.keys_list[i][1] and self.keys_list[i][0] == "Key":
+				self.keys_list[i][2](x,y)
+			
+		return 0
+
+	def key_up_functions(self,key,x,y):
+		for i in range(len(self.keys_list)):
+			if key == self.keys_list[i][1] and self.keys_list[i][0] == "KeyUp":
+				self.keys_list[i][2](x,y)
+		return 0
+		
+		
+		
+	def set_textures(self,textures):
+		if textures == None:
+			return 
+		for t in textures:
+			self.load_textures(t)
+
+	def foundation(self,menu_function_list=None, keys=None,textures=None):
+		self.window_init()
+		self.light_init()
+		self.settings_init()
+		self.camera_init()
+		self.random_colors()
+		self.set_menu(menu_function_list)
+		self.set_keys(keys)
+		self.set_textures(textures)
+
+		glutDisplayFunc(self.display)
+		glutIdleFunc(self.idle)            
+		glutMainLoop()
+
+		return
+
+	def add_gobject(self,draw_function,parent=None,name=None):
+		
+		gobject = gObject()
+		gobject.parent = parent
+		gobject.name = name
+		gobject.gid = self.gid
+		self.gid += 1
+		gobject.draw_function = draw_function
+		self.gobject_list.append(gobject)
+            	return
             
 
+	def idle(self):	
+	
+		timemarkA = time.time()
+		glutPostRedisplay()
+		timemarkB = time.time()
+		self.animate(timemarkB-timemarkA)
+
+	def add_animate(self,f):
+		self.animate_function = f		
+
+	def animate(self,timeval):
+		self.animate_function(timeval)
+		return		         
+
 	def display(self):
-	    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
-	    #glPushMatrix()
-	    
-            color = [1.0,0.,0.,1.]
-	    glMaterialfv(GL_FRONT,GL_DIFFUSE,color)
-            glRotate3f(self.rot,1,0,0)
-	    glutSolidSphere(2,20,20)
-	    
-	    #glPopMatrix()
-	    glutSwapBuffers()
-	    return
 
+		self.set_camera()
+		glClearColor(0.0, 0.0, 0.0, 0.0 )
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
 
-if __name__ == '__main__': 
-	myGate = Gate()
-	myGate.foundation()
+		for go in self.gobject_list:
+			go.draw()
+
+		glutSwapBuffers()
+
+		return
+
+	def decode(self,filename,decode_type="wireframe"):
+		f = open("./"+filename,"r")
+		t = f.read()
+
+		vertex_entry = 0
+		edge_entry = 0
+		triangle_entry = 0
+		ends = []
+		index = 0
+		
+		lookup = "};"
+		with open(filename) as myFile:
+			for num, line in enumerate(myFile):
+				if lookup in line:
+					ends.append(num)
+				if "struct point Helipoints[]" in line:	
+					vertex_entry = num
+				if "struct edge Heliedges[]" in line:
+					edge_entry = num
+				if "struct tri Helitris[]" in line:
+					triangle_entry = num
+				
+		vertices = []
+		edges = []
+		triangles = []	
+		if decode_type == "wireframe":
+			triangles = None
+			with open(filename) as myFile:
+				for num, line in enumerate(myFile):
+					if num <= vertex_entry:	
+						continue
+					if num >= ends[3]:
+						break
+					
+					line = line.translate(None, '\n,{}f')
+					line = line.lstrip()
+					line = line.rstrip()
+								
+					a, b, c = line.split(" ")	
+					vertices.append((float(a),float(b),float(c)))		
+			with open(filename) as myFile:
+                                for num, line in enumerate(myFile):
+                                        if num <= edge_entry:
+                                                continue
+                                        if num >= ends[4]:
+                                                break
+
+                                        line = line.translate(None, '\n,{}f')
+                                        line = line.lstrip()
+                                        line = line.rstrip()
+
+                                        a, b = line.split(" ")
+                                        edges.append((float(a),float(b)))
+		else:
+                        edges = None
+                        with open(filename) as myFile:
+                                for num, line in enumerate(myFile):
+                                        if num <= vertex_entry:
+                                                continue
+                                        if num >= ends[3]:
+                                                break
+
+                                        line = line.translate(None, '\n,{}f')
+                                        line = line.lstrip()
+                                        line = line.rstrip()
+
+                                        a, b, c = line.split(" ")
+                                        vertices.append((float(a),float(b),float(c)))
+                        with open(filename) as myFile:
+                                for num, line in enumerate(myFile):
+                                        if num <= triangle_entry:
+                                                continue
+                                        if num >= ends[5]:
+                                                break
+
+                                        line = line.translate(None, '\n,{}f')
+                                        line = line.lstrip()
+                                        line = line.rstrip()
+					line = ' '.join(line.split())
+					a, b, c = line.split(" ")
+                                        triangles.append((int(a),int(b),int(c)))
+
+		return vertices,edges,triangles
+
+	def load_textures(self,path):
+		image = open(path)
+		ix = image.size[0]
+		iy = image.size[1]
+		image = image.tobytes("raw", "RGBX", 0, -1)
+
+		glBindTexture(GL_TEXTURE_2D, glGenTextures(1))   
+
+		glPixelStorei(GL_UNPACK_ALIGNMENT,1)
+		glTexImage2D(GL_TEXTURE_2D, 0, 3, ix, iy, 0, GL_RGBA, GL_UNSIGNED_BYTE, image)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL)
+
+	def draw_sphere(self,l1,l2):
+		
+		for i in range(0, l1 + 1):
+			lat0 = pi * (-0.5 + float(float(i - 1) / float(l1)))
+			z0 = sin(lat0)
+			zr0 = cos(lat0)
+
+			lat1 = pi * (-0.5 + float(float(i) / float(l1)))
+			z1 = sin(lat1)
+			zr1 = cos(lat1)
+
+			glShadeModel( GL_FLAT )
+			glBegin(GL_QUAD_STRIP)
+
+			for j in range(0, l2 + 1):
+				lng = 2 * pi * float(float(j - 1) / float(l2))
+				x = cos(lng)
+				y = sin(lng)
+				ss = (lng+0.0628)/(6.22+0.0628)
+				tt0 = (lat0+1.603)/(1.54+1.603)
+
+				max_picture_radius = 0.5
+				self.sa = 1
+	                        glColor3f(1.0,1.0,1.0)
+				#glTexCoord2f((1/self.sa)*cos(2*pi*ss)*tt0*max_picture_radius/2+0.5,(1/self.sa)*sin(2*pi*ss)*tt0*max_picture_radius/2+0.5);
+				
+				tt1 = (lat0+1.603)/(1.54+1.603)
+				
+				glNormal3f(x * zr0, y * zr0, z0)
+				glVertex3f(x * zr0, y * zr0, z0)
+				#glTexCoord2f((1/self.sa)*cos(2*pi*ss)*tt1*max_picture_radius/2+0.5,(1/self.sa)*sin(2*pi*ss)*tt1*max_picture_radius/2+0.5);
+				glNormal3f(x * zr1, y * zr1, z1)
+				glVertex3f(x * zr1, y * zr1, z1)
+
+			glEnd()
+
 
 
