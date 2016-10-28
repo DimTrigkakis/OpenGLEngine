@@ -8,6 +8,10 @@ from math import *
 from gobject import gObject
 from PIL import Image
 
+class Data(object):
+	def __init__(self,**kwargs):
+		self.__dict__.update(kwargs)
+
 class Camera(object):
 	center = None
 	look = None
@@ -31,6 +35,9 @@ class Gate(object):
 	gid = 0
 	tids_true = []
 
+	lights = []
+	lid = 0
+
 	def window_init(self):
 		glutInit(sys.argv)
 		glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
@@ -43,20 +50,71 @@ class Gate(object):
 		glEnable(GL_DEPTH_TEST)
 	
 	def light_init(self):
-		glEnable(GL_LIGHTING)
-		x,y,z = [0,10,0]
-		lightZeroPosition = [x,y,z,1.]
-		lightZeroColor = [1.0,1.0,1.0,1.0] 
-		glLightfv(GL_LIGHT0, GL_POSITION, lightZeroPosition)
-		glLightfv( GL_LIGHT0, GL_SPOT_DIRECTION,  (-x,-y,-z) );
-		glLightf(  GL_LIGHT0, GL_SPOT_EXPONENT, 1 );
-		glLightf(  GL_LIGHT0, GL_SPOT_CUTOFF, 180.0 );
-		glLightfv(GL_LIGHT0, GL_DIFFUSE, lightZeroColor)
-		glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.1)
-		glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.05)
-		glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0)
-		glEnable(GL_LIGHT0)
+		glEnable(GL_LIGHTING)		
 		glEnable( GL_NORMALIZE )
+
+	def create_point_light(self,location=(0,0,0),color=(1.0,1.0,1.0),name= None,parent=None):
+		x,y,z = location
+		r,g,b = color
+		lid = self.lid
+		gobject = gObject()
+		gobject.parent = parent
+		gobject.name = name
+		gobject.gid = self.gid
+		self.gid += 1
+		self.gobject_list.append(gobject)
+		gobject.light=True
+		gobject.lid = lid
+		gobject.location = (x,y,z)
+		lightPosition = [x,y,z,1.]
+		lightColor = [r,g,b,1.0] 
+		glLightfv(GL_LIGHT0+lid, GL_POSITION, lightPosition)
+		glLightfv(GL_LIGHT0+lid, GL_DIFFUSE, lightColor)
+		glLightf(GL_LIGHT0+lid, GL_CONSTANT_ATTENUATION, 0.1)
+		glLightf(GL_LIGHT0+lid, GL_LINEAR_ATTENUATION, 0.05)
+		glLightf(GL_LIGHT0+lid, GL_QUADRATIC_ATTENUATION, 0)
+		glEnable(GL_LIGHT0+lid)
+		self.lights.append(lid)
+		self.lid += 1
+
+	def create_spot_light(self,location=(0,0,0),color=(1.0,0.0,1.0),name= None,parent=None):
+		x,y,z = location
+		r,g,b = color
+
+		lid = self.lid
+		gobject = gObject()
+		gobject.parent = parent
+		gobject.name = name
+		gobject.gid = self.gid
+		self.gid += 1
+		self.gobject_list.append(gobject)
+		gobject.light=True
+		gobject.lid = lid
+		gobject.location = (x,y,z)
+		lightPosition = [x,y,z,1.]
+		lightColor = [r,g,b,1.0] 
+		glLightfv(GL_LIGHT0+lid, GL_POSITION, lightPosition)
+		glLightfv(GL_LIGHT0+lid, GL_DIFFUSE, lightColor)
+		glLightfv( GL_LIGHT0+lid, GL_SPOT_DIRECTION,  (-x,-y,-z) )
+		glLightf(  GL_LIGHT0+lid, GL_SPOT_EXPONENT, 1 )
+		glLightf(  GL_LIGHT0+lid, GL_SPOT_CUTOFF, 60.0 )
+		glLightf(GL_LIGHT0+lid, GL_CONSTANT_ATTENUATION, 0.1)
+		glLightf(GL_LIGHT0+lid, GL_LINEAR_ATTENUATION, 0.05)
+		glLightf(GL_LIGHT0+lid, GL_QUADRATIC_ATTENUATION, 0)
+		glEnable(GL_LIGHT0+lid)
+		self.lights.append(lid)
+		self.lid += 1
+
+	def set_lights(self,lights):
+		if lights == None:
+			return
+		for l in lights:
+			if l.type == "Point":
+				self.create_point_light(location=l.location,color=l.color,parent=l.parent)
+				
+			if l.type == "Spot":
+				self.create_spot_light(location=l.location,color=l.color,parent=l.parent)
+
 
 	def camera_init(self):
 		self.camera = Camera()
@@ -126,7 +184,7 @@ class Gate(object):
 		for t in textures:
 			self.load_textures(t)
 
-	def foundation(self,menu_function_list=None, keys=None,textures=None):
+	def foundation(self,menu_function_list=None, keys=None,textures=None,lights=None):
 		self.window_init()
 		self.light_init()
 		self.settings_init()
@@ -135,6 +193,7 @@ class Gate(object):
 		self.set_menu(menu_function_list)
 		self.set_keys(keys)
 		self.set_textures(textures)
+		self.set_lights(lights)
 
 		glutDisplayFunc(self.display)
 		glutIdleFunc(self.idle)            
@@ -166,7 +225,8 @@ class Gate(object):
 		self.animate_function = f		
 
 	def animate(self,timeval):
-		self.animate_function(timeval)
+		if self.animate_function != None:
+			self.animate_function(timeval)
 		return		         
 
 	def display(self):
@@ -181,6 +241,62 @@ class Gate(object):
 		glutSwapBuffers()
 
 		return
+
+	def set_texture(self,tid):
+		glBindTexture(GL_TEXTURE_2D, self.tids_true[tid])   
+		
+	def load_textures(self,path):
+		image = Image.open(path)
+		ix = image.size[0]
+		iy = image.size[1]		
+		image = image.tobytes("raw", "RGBX", 0, -1)
+		tid_true = glGenTextures(1)
+		glBindTexture(GL_TEXTURE_2D, tid_true)
+		glPixelStorei(GL_UNPACK_ALIGNMENT,1)
+		glTexImage2D(GL_TEXTURE_2D, 0, 3, ix, iy, 0, GL_RGBA, GL_UNSIGNED_BYTE, image)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
+
+		self.tids_true.append(tid_true)
+
+	def draw_sphere(self,l1,l2): # texturing doesn't work
+		for i in range(0, l1 + 1):
+			lat0 = pi * (-0.5 + float(float(i - 1) / float(l1)))
+			z0 = sin(lat0)
+			zr0 = cos(lat0)
+
+			lat1 = pi * (-0.5 + float(float(i) / float(l1)))
+			z1 = sin(lat1)
+			zr1 = cos(lat1)
+
+			glShadeModel( GL_SMOOTH )
+			glBegin(GL_QUAD_STRIP)
+
+			for j in range(0, l2 + 1):
+				lng = 2 * pi * float(float(j - 1) / float(l2))
+				x = cos(lng)
+				y = sin(lng)
+				ss = (lng+0.628318530718)/(2*pi)
+				tt0 = (lat0+1.88495559215)/(pi)
+				tt1 = (lat1+1.88495559215)/(pi)
+				ss = float("{0:.2f}".format(ss))
+				tt0 = float("{0:.2f}".format(tt0))
+				tt1 = float("{0:.2f}".format(tt1))
+	                        glColor3f(1.0,1.0,1.0)
+				glTexCoord2f(ss,tt0);
+				glNormal3f(x * zr0, y * zr0, z0)
+				glVertex3f(x * zr0, y * zr0, z0)
+				
+				glTexCoord2f(ss,tt1);
+				glNormal3f(x * zr1, y * zr1, z1)
+				glVertex3f(x * zr1, y * zr1, z1)
+
+			glEnd()
 
 	def decode(self,filename,decode_type="wireframe"):
 		f = open("./"+filename,"r")
@@ -265,63 +381,5 @@ class Gate(object):
                                         triangles.append((int(a),int(b),int(c)))
 
 		return vertices,edges,triangles
-
-	def set_texture(self,tid):
-		glBindTexture(GL_TEXTURE_2D, self.tids_true[tid])   
-		
-	def load_textures(self,path):
-		image = Image.open(path)
-		ix = image.size[0]
-		iy = image.size[1]		
-		image = image.tobytes("raw", "RGBX", 0, -1)
-		tid_true = glGenTextures(1)
-		glBindTexture(GL_TEXTURE_2D, tid_true)
-		glPixelStorei(GL_UNPACK_ALIGNMENT,1)
-		glTexImage2D(GL_TEXTURE_2D, 0, 3, ix, iy, 0, GL_RGBA, GL_UNSIGNED_BYTE, image)
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP)
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP)
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL)
-
-		self.tids_true.append(tid_true)
-
-	def draw_sphere(self,l1,l2):
-		
-		for i in range(0, l1 + 1):
-			lat0 = pi * (-0.5 + float(float(i - 1) / float(l1)))
-			z0 = sin(lat0)
-			zr0 = cos(lat0)
-
-			lat1 = pi * (-0.5 + float(float(i) / float(l1)))
-			z1 = sin(lat1)
-			zr1 = cos(lat1)
-
-			glShadeModel( GL_FLAT )
-			glBegin(GL_QUAD_STRIP)
-
-			for j in range(0, l2 + 1):
-				lng = 2 * pi * float(float(j - 1) / float(l2))
-				x = cos(lng)
-				y = sin(lng)
-				ss = (lng+0.0628)/(6.22+0.0628)
-				tt0 = (lat0+1.603)/(1.54+1.603)
-
-				max_picture_radius = 0.5
-				self.sa = 1
-	                        glColor3f(1.0,1.0,1.0)
-				glTexCoord2f((1/self.sa)*cos(2*pi*ss)*tt0*max_picture_radius/2+0.5,(1/self.sa)*sin(2*pi*ss)*tt0*max_picture_radius/2+0.5);
-				
-				tt1 = (lat1+1.603)/(1.54+1.603)
-				
-				glNormal3f(x * zr0, y * zr0, z0)
-				glVertex3f(x * zr0, y * zr0, z0)
-				glTexCoord2f((1/self.sa)*cos(2*pi*ss)*tt1*max_picture_radius/2+0.5,(1/self.sa)*sin(2*pi*ss)*tt1*max_picture_radius/2+0.5);
-				glNormal3f(x * zr1, y * zr1, z1)
-				glVertex3f(x * zr1, y * zr1, z1)
-
-			glEnd()
 
 
