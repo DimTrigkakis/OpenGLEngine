@@ -7,6 +7,8 @@ import random
 from math import *
 from gobject import gObject
 from PIL import Image
+import pyaudio
+import wave
 
 class Data(object):
 	def __init__(self,**kwargs):
@@ -17,15 +19,19 @@ class Camera(object):
 	look = None
 	up = None
 
+WIDTH = 1280
+HEIGHT = 960
 class Gate(object):
 
 	name = 'OGRE' # OpenGlRenderingEngine ~ OGRE
 	fps = 60 
+	HEIGHT = 0
+	WIDTH = 0
 
 	gobject_list = []
 	colors = []
 
-	Xrot, Yrot, Zrot, Scale, MINSCALE = [0,0,0,2., 0.01]
+	Xrot, Yrot, Zrot, Scale, MINSCALE = [0,0,0,1., 0.01]
 
 	menu_function_list = []
 	keys_list = []
@@ -39,10 +45,14 @@ class Gate(object):
 	lid = 0
 
 	def window_init(self):
+		global WIDTH, HEIGHT
+		self.HEIGHT = HEIGHT
+		self.WIDTH = WIDTH
 		glutInit(sys.argv)
 		glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
-		glutInitWindowSize(800,800)
-		glutInitWindowPosition(glutGet(GLUT_SCREEN_WIDTH)/2-400,glutGet(GLUT_SCREEN_HEIGHT)/2-400)
+		glutInitWindowSize(WIDTH,HEIGHT)
+		glutInitWindowPosition(glutGet(GLUT_SCREEN_WIDTH)/2-WIDTH/2,glutGet(GLUT_SCREEN_HEIGHT)/2-HEIGHT/2)
+		
 		glutCreateWindow(self.name)
 	
 	def settings_init(self):
@@ -71,12 +81,17 @@ class Gate(object):
 		glLightfv(GL_LIGHT0+lid, GL_POSITION, lightPosition)
 		glLightfv(GL_LIGHT0+lid, GL_DIFFUSE, lightColor)
 		glLightfv(GL_LIGHT0+lid, GL_SPECULAR, lightColor)
-		glLightf(GL_LIGHT0+lid, GL_CONSTANT_ATTENUATION, 0.1)
-		glLightf(GL_LIGHT0+lid, GL_LINEAR_ATTENUATION, 0.05)
-		glLightf(GL_LIGHT0+lid, GL_QUADRATIC_ATTENUATION, 0)
+		glLightf(GL_LIGHT0+lid, GL_CONSTANT_ATTENUATION,0.001)
+		glLightf(GL_LIGHT0+lid, GL_LINEAR_ATTENUATION, 0.001)
+		glLightf(GL_LIGHT0+lid, GL_QUADRATIC_ATTENUATION, 0.0001)
 		glEnable(GL_LIGHT0+lid)
 		self.lights.append(lid)
 		self.lid += 1
+
+	def find_gobject(self,name):
+		for i in self.gobject_list:
+			if i.name == name:
+				return i
 
 	def create_spot_light(self,location=(0,0,0),color=(1.0,0.0,1.0),name= None,parent=None):
 		x,y,z = location
@@ -97,11 +112,11 @@ class Gate(object):
 		glLightfv(GL_LIGHT0+lid, GL_POSITION, lightPosition)
 		glLightfv(GL_LIGHT0+lid, GL_DIFFUSE, lightColor)
 		glLightfv(GL_LIGHT0+lid, GL_SPECULAR, lightColor)
-		glLightfv( GL_LIGHT0+lid, GL_SPOT_DIRECTION,  (-x,-y,-z) )
+		glLightfv( GL_LIGHT0+lid, GL_SPOT_DIRECTION,  (0,-10,0) )
 		glLightf(  GL_LIGHT0+lid, GL_SPOT_EXPONENT, 1 )
 		glLightf(  GL_LIGHT0+lid, GL_SPOT_CUTOFF, 60.0 )
 		glLightf(GL_LIGHT0+lid, GL_CONSTANT_ATTENUATION, 0.1)
-		glLightf(GL_LIGHT0+lid, GL_LINEAR_ATTENUATION, 0.05)
+		glLightf(GL_LIGHT0+lid, GL_LINEAR_ATTENUATION, 0.04)
 		glLightf(GL_LIGHT0+lid, GL_QUADRATIC_ATTENUATION, 0)
 		glEnable(GL_LIGHT0+lid)
 		self.lights.append(lid)
@@ -126,11 +141,11 @@ class Gate(object):
 		self.set_camera()
 
 	def set_camera(self):
-
+		global WIDTH, HEIGHT
 		camera = self.camera
 		glMatrixMode(GL_PROJECTION)
                 glLoadIdentity()
-		gluPerspective(40.,1.,1.,4000.)
+		gluPerspective(40.,WIDTH*1.0/HEIGHT,1.,4000.)
                 glMatrixMode(GL_MODELVIEW)
                 glLoadIdentity()
 		gluLookAt(camera.center[0],camera.center[1],camera.center[2],
@@ -150,7 +165,6 @@ class Gate(object):
 		menu = glutCreateMenu(self.processMenuEvent)
 		for i,x in enumerate(self.menu_function_list):
 			glutAddMenuEntry(x[0],i)
-		glutAttachMenu(GLUT_RIGHT_BUTTON)
 	
 	def processMenuEvent(self,event):
 		self.menu_function_list[event][1]()
@@ -164,7 +178,14 @@ class Gate(object):
 		self.keys_list = keys
 		glutKeyboardFunc(self.key_functions)
 		glutKeyboardUpFunc(self.key_up_functions)
+		glutPassiveMotionFunc(self.mouse_function)
 
+	def mouse_function(self,x,y):
+		for i in range(len(self.keys_list)):
+			if self.keys_list[i][0] == "Mouse":
+				self.keys_list[i][2](x,y)
+			
+		return 0
 	def key_functions(self,key,x,y):
 		for i in range(len(self.keys_list)):
 			if key == self.keys_list[i][1] and self.keys_list[i][0] == "Key":
@@ -203,11 +224,12 @@ class Gate(object):
 
 		return
 
-	def add_gobject(self,draw_function,tid=-1,parent=None,name=None):
+	def add_gobject(self,draw_function,tid=-1,parent=None,name=None,location=(0,0,0)):
 		
 		gobject = gObject()
 		gobject.parent = parent
 		gobject.name = name
+		gobject.location = location
 		gobject.gid = self.gid
 		self.gid += 1
 		gobject.tid = tid
@@ -234,6 +256,7 @@ class Gate(object):
 	def display(self):
 
 		self.set_camera()
+
 		glClearColor(0.0, 0.0, 0.0, 0.0 )
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
 
@@ -251,13 +274,18 @@ class Gate(object):
 		image = Image.open(path)
 		ix = image.size[0]
 		iy = image.size[1]		
-		image = image.tobytes("raw", "RGBX", 0, -1)
+		try:
+			image = image.tobytes("raw", "RGBX", 0, -1)
+		except:
+			image = Image.open("./template.jpg")
+			ix = image.size[0]
+			iy = image.size[1]	
+			image = image.tobytes("raw", "RGBX", 0, -1)
+		
 		tid_true = glGenTextures(1)
 		glBindTexture(GL_TEXTURE_2D, tid_true)
 		glPixelStorei(GL_UNPACK_ALIGNMENT,1)
 		glTexImage2D(GL_TEXTURE_2D, 0, 3, ix, iy, 0, GL_RGBA, GL_UNSIGNED_BYTE, image)
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
@@ -383,5 +411,35 @@ class Gate(object):
                                         triangles.append((int(a),int(b),int(c)))
 
 		return vertices,edges,triangles
+
+
+
+	def audio(self):
+		chunk = 1024
+		wf = wave.open("music.wav", 'rb')
+
+		# create an audio object
+		p = pyaudio.PyAudio()
+
+		# open stream based on the wave object which has been input.
+		stream = p.open(format =
+				p.get_format_from_width(wf.getsampwidth()),
+				channels = wf.getnchannels(),
+				rate = wf.getframerate(),
+				output = True)
+
+		# read data (based on the chunk size)
+		data = wf.readframes(chunk)
+
+		# play stream (looping from beginning of file to the end)
+		while data != '':
+		    # writing to the stream is what *actually* plays the sound.
+		    stream.write(data)
+		    data = wf.readframes(chunk)
+
+		# cleanup stuff.
+		stream.close()    
+		p.terminate()
+
 
 
