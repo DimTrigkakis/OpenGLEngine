@@ -9,6 +9,7 @@ from gobject import gObject
 from PIL import Image
 import pyaudio
 import wave
+import pygame
 
 class Data(object):
 	def __init__(self,**kwargs):
@@ -20,7 +21,8 @@ class Camera(object):
 	up = None
 
 WIDTH = 1280
-HEIGHT = 960
+HEIGHT = 960		
+
 class Gate(object):
 
 	name = 'OGRE' # OpenGlRenderingEngine ~ OGRE
@@ -43,6 +45,8 @@ class Gate(object):
 
 	lights = []
 	lid = 0
+
+	
 
 	def window_init(self):
 		global WIDTH, HEIGHT

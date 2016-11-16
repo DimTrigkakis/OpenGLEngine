@@ -50,6 +50,13 @@ def Animate(timeval):
 		return
 
 	waveTime += 0.0001
+
+	
+	random_canvas = myGate.find_gobject("canvas")
+	if (random_canvas != None):
+		r = random_canvas.rotation
+		random_canvas.rotation = (r[0],r[1]+waveTime*3,r[2])
+
 	beta = 0
 	if (mouse_x - myGate.WIDTH/2.0) > 200:
 		beta = ((mouse_x - myGate.WIDTH/2.0)-200)/50.0
@@ -60,8 +67,8 @@ def Animate(timeval):
 	myGate.camera.look[1] = myGate.camera.center[1] + ((myGate.HEIGHT-mouse_y)*10.0/myGate.HEIGHT - 5)
 	(x,y,z) = myGate.camera.center
 	y+= 10
-
-	myGate.find_gobject("player_point_light").location = (x,y,z)
+	l = myGate.find_gobject("player_point_light").location
+	myGate.find_gobject("player_point_light").location = (0.99*l[0]+0.01*(x+5),0.9*l[1]+0.1*(y-8+math.cos(waveTime*400)),z)
 	myGate.find_gobject("sky").location = (x+5,y-10,z)
 
 	r = 10
@@ -197,11 +204,12 @@ def draw_heightmap(gid,tid,name):
 
 def draw_sky(gid,tid,name):
 	
-	global lights_on, program, waveTime
+	global lights_on, program, waveTime, once
 
-	shaders.enable()
-	loc=glGetUniformLocation(program,"waveTime")
-	glUniform1f(loc,waveTime)
+	if (once != True):
+		shaders.enable()
+		loc=glGetUniformLocation(program,"waveTime")
+		glUniform1f(loc,waveTime)
 	if  not lights_on:
 		glDisable(GL_LIGHTING)
 	myGate.set_texture(tid)
@@ -300,19 +308,31 @@ def draw_sphere(gid,tid,name):
 
 def draw_object_node(gid,tid,name):
 	glDisable(GL_LIGHTING)
-	glColor3f(1,0,0,1)
+	glColor3f(1,1,1,1)
 	glutSolidSphere(0.1,20,20)
 	glEnable(GL_LIGHTING)
 
 lights_on = False
 def draw_canvas(gid,tid,name):
+	
 	global lights_on
 	myGate.set_texture(tid)
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glColor3f(1,1,1)
 	lights_on = True
-	draw_sphere(gid,tid,name)
+	glDisable(GL_LIGHTING)
+	glBegin(GL_TRIANGLE_STRIP)
+	glTexCoord2f(0,0)
+	glVertex3f(-5,-5,0)
+	glTexCoord2f(0,1)
+	glVertex3f(-5,5,0)
+	glTexCoord2f(1,0)
+	glVertex3f(5,-5,0)
+	glTexCoord2f(1,1)
+	glVertex3f(5,5,0)
+	glEnd()
+	glEnable(GL_LIGHTING)
+		
+	#draw_sphere(gid,tid,name)
 	lights_on = False
 
 def glut_print( x,  y,  font,  text, r,  g , b , a):
@@ -358,18 +378,18 @@ def random_creation():
 			rx = +50*random.random()-25
 			ry = +50*random.random()-25
 		rz = 10
-		rt = random.randint(0,10)
+		rt = random.randint(0,10)+2
 		if (random_canvas == None) or (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) > 250):
 			
 			if random_canvas != None:
 				myGate.gobject_list.remove(random_canvas)
 			
-			myGate.add_gobject(draw_canvas,tid=2,name="canvas",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
+			myGate.add_gobject(draw_canvas,tid=rt,name="canvas",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
 			location=(myGate.camera.center[0],heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],myGate.camera.center[2])	
 			random_canvas = myGate.find_gobject("canvas")
 
 		elif (random_canvas == None):
-			myGate.add_gobject(draw_canvas,tid=2,name="canvas",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
+			myGate.add_gobject(draw_canvas,tid=rt,name="canvas",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
 			random_canvas = myGate.find_gobject("canvas")
 		
 def none_call(gid,tid,name):
@@ -400,8 +420,7 @@ myGate.foundation(menu,keys,textures,true_lights)
 
 # TO DO LIST
 
-# script to create polls that hold the lights (maybe minecraft lights on the air as boxes)
-# script to download images and text - DONE
+
 # script to create canvas model and place texture inside it
 # script to create interaction nodes
 

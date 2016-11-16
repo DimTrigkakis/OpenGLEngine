@@ -39,17 +39,21 @@ class gObject(object):
 			if self.draw_function != None:
 				if self.tid != -1:
 					glEnable(GL_TEXTURE_2D)
-					self.draw_function(self.gid,self.tid,self.name)
+					try:
+						self.draw_function(self.gid,self.tid,self.name)
+					except:
+						"OMG"					
 					glDisable(GL_TEXTURE_2D)
 				else:
 					self.draw_function(self.gid,self.tid,self.name)
 		else:
 			p = self.parent
+			location = self.location
 			while (p != None):
-				self.location = (p.location[0]+self.location[0],p.location[1]+self.location[2],p.location[2]+self.location[2])
+				location = (p.location[0]+location[0],p.location[1]+location[2],p.location[2]+location[2])
 				p = p.parent
 
-			glLightfv(GL_LIGHT0+self.lid, GL_POSITION, [self.location[0],self.location[1],self.location[2],1])
+			glLightfv(GL_LIGHT0+self.lid, GL_POSITION, [location[0],location[1],location[2],1])
 
 		glPopMatrix()
 

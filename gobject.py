@@ -39,7 +39,10 @@ class gObject(object):
 			if self.draw_function != None:
 				if self.tid != -1:
 					glEnable(GL_TEXTURE_2D)
-					self.draw_function(self.gid,self.tid,self.name)
+					try:
+						self.draw_function(self.gid,self.tid,self.name)
+					except:
+						pass #Black and white picture 					
 					glDisable(GL_TEXTURE_2D)
 				else:
 					self.draw_function(self.gid,self.tid,self.name)
