@@ -7,6 +7,7 @@ import sys
 from threading import Thread
 import generator
 import numpy
+import shaders
 
 myGate = gate.Gate()
 heightmap = generator.heightmaps()
@@ -23,24 +24,32 @@ right_step = 0
 mouse_x = 0
 mouse_y = 0
 
-def mouse_move(x,y):
-	global mouse_x, mouse_y
-
-	mouse_x = x
-	mouse_y = y
 
 once = True
 scale = 16
+
+waveTime = 0.0
+program = None
 def Animate(timeval):
 	
-	global forward_step, right_step, backward_step,mouse_x,mouse_y, once,scale
+	global forward_step, right_step, backward_step,mouse_x,mouse_y, once,scale, waveTime, program
 	random_creation()
 	if (once):
+		
+		#glEnable(GL_FOG)
+		fogColor = [0.1, 0.1, 0.1, 0.2]
+		glFogi(GL_FOG_MODE, GL_EXP)
+		glFogfv(GL_FOG_COLOR, fogColor)
+		glFogf(GL_FOG_DENSITY, 0.01)
+		program = shaders.init()
+		
+
 		myGate.camera.center = [generator.m/2,30.0,generator.m/2]
 		once = False
 		myGate.set_camera()
 		return
 
+	waveTime += 0.0001
 	beta = 0
 	if (mouse_x - myGate.WIDTH/2.0) > 200:
 		beta = ((mouse_x - myGate.WIDTH/2.0)-200)/50.0
@@ -94,11 +103,20 @@ def Animate(timeval):
 
 	right_step = 0
 
+def mouse_move(x,y):
+	global mouse_x, mouse_y
+	mouse_x = x
+	mouse_y = y
+
 def forward(x,y):
 	global forward_step
 	forward_step = 1
 	return
 def forward_stop(x,y):
+	global mouse_x, mouse_y
+
+	mouse_x = x
+	mouse_y = y
 	global forward_step
 	forward_step = 0
 	return
@@ -136,8 +154,6 @@ def dist(center, (i,h,j)):
 
 	return math.sqrt((i-x)*(i-x)+(j-z)*(j-z))
 
-def draw_sky(gid,tid,name):
-	pass
 	
 	
 def draw_heightmap(gid,tid,name):
@@ -179,8 +195,62 @@ def draw_heightmap(gid,tid,name):
 
 	glEnd()
 
+def draw_sky(gid,tid,name):
+	
+	global lights_on, program, waveTime
+
+	shaders.enable()
+	loc=glGetUniformLocation(program,"waveTime")
+	glUniform1f(loc,waveTime)
+	if  not lights_on:
+		glDisable(GL_LIGHTING)
+	myGate.set_texture(tid)
+	glColor3f(0.6,0.6,0.6)
+	if not lights_on:
+		glScalef(220,220,220)
+	else:
+		glScalef(10,10,10)
+	l1 = 20
+	l2 = 20
+	pi = math.pi
+	for i in range(0, l1 + 1):
+		lat0 = pi * (-0.5 + float(float(i - 1) / float(l1)))
+		z0 = math.sin(lat0)
+		zr0 = math.cos(lat0)
+
+		lat1 = pi * (-0.5 + float(float(i) / float(l1)))
+		z1 = math.sin(lat1)
+		zr1 = math.cos(lat1)
+
+		glBegin(GL_QUAD_STRIP)
+
+		for j in range(0, l2 + 1):
+			lng = 2 * pi * float(float(j - 1) / float(l2))
+			x = math.cos(lng)
+			y = math.sin(lng)
+			ss = (lng+0.0628)/(6.22+0.0628)
+			tt0 = (lat0+1.603)/(1.54+1.603)
+
+			max_picture_radius = 0.5
+			repeat = 10.0
+			if lights_on:
+				repeat = 1
+			glTexCoord2f((repeat)*math.cos(2*pi*ss)*tt0/2+0.5,(repeat)*math.sin(2*pi*ss)*tt0/2+0.5);
+			
+			tt1 = (lat1+1.603)/(1.54+1.603)
+			
+			glVertex3f(x * zr0, y * zr0, z0)
+			glTexCoord2f((repeat)*math.cos(2*pi*ss)*tt1/2+0.5,(repeat)*math.sin(2*pi*ss)*tt1/2+0.5);
+			glVertex3f(x * zr1, y * zr1, z1)
+
+		glEnd()
+	glScalef(1,1,1)
+	if  not lights_on:
+		glEnable(GL_LIGHTING)
+	shaders.disable()
 
 def draw_sphere(gid,tid,name):
+	
 	global lights_on
 	if  not lights_on:
 		glDisable(GL_LIGHTING)
@@ -311,12 +381,12 @@ def create_entities():
 	return my_lights
 
 menu = []
-keys = [("Key",'w',forward),("KeyUp",'w',forward_stop),("Key",'d',right_side),("KeyUp",'d',right_side_stop),("Key",'s',backward),("KeyUp",'s',backward_stop),("Key",'a',left_side),("Key",'e',read_text),("KeyUp",'a',left_side_stop),("Mouse","None",mouse_move)]
+keys = [("Key",'w',forward),("KeyUp",'w',forward_stop),("Key",'d',right_side),("KeyUp",'d',right_side_stop),("Key",'s',backward),("KeyUp",'s',backward_stop),("Key",'a',left_side),("Key",'e',read_text),("KeyUp",'a',left_side_stop),("Mouse","None",mouse_move),("MouseLeft","None",forward),("MouseRight","None",backward),("MouseLeftUp","None",forward_stop),("MouseRightUp","None",backward_stop)]
 textures = ["marble.jpg","starnight.jpg"]
 
 myGate.add_gobject(draw_object_node,name="player_point_light")
 myGate.add_gobject(draw_heightmap,tid=0,name="heightmap")
-myGate.add_gobject(draw_sphere,tid=1,name="sky")
+myGate.add_gobject(draw_sky,tid=1,name="sky")
 light0 = gate.Data(location=(0,10,0),type="Point",color=(0.9,1,0.9),parent=myGate.find_gobject("player_point_light"))
 lights = create_entities()
 for t in range(10):

@@ -178,11 +178,24 @@ class Gate(object):
 		self.keys_list = keys
 		glutKeyboardFunc(self.key_functions)
 		glutKeyboardUpFunc(self.key_up_functions)
+		glutMotionFunc(self.mouse_function)
 		glutPassiveMotionFunc(self.mouse_function)
+		glutMouseFunc(self.mouse_down_function)
 
 	def mouse_function(self,x,y):
 		for i in range(len(self.keys_list)):
 			if self.keys_list[i][0] == "Mouse":
+				self.keys_list[i][2](x,y)
+
+	def mouse_down_function(self,button,state,x,y):
+		for i in range(len(self.keys_list)):
+			if self.keys_list[i][0] == "MouseLeft" and button==GLUT_LEFT_BUTTON and state==GLUT_DOWN:
+				self.keys_list[i][2](x,y)
+			if self.keys_list[i][0] == "MouseRight" and button==GLUT_RIGHT_BUTTON and state==GLUT_DOWN:
+				self.keys_list[i][2](x,y)
+			if self.keys_list[i][0] == "MouseLeftUp" and button==GLUT_LEFT_BUTTON and state==GLUT_UP:
+				self.keys_list[i][2](x,y)
+			if self.keys_list[i][0] == "MouseRightUp" and button==GLUT_RIGHT_BUTTON and state==GLUT_UP:
 				self.keys_list[i][2](x,y)
 			
 		return 0

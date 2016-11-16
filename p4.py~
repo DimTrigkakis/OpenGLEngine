@@ -3,174 +3,406 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from OpenGL.GL import *
 import math
-import pyaudio
-import wave
 import sys
 from threading import Thread
+import generator
+import numpy
+import shaders
 
-def audio():
-	chunk = 1024
-	wf = wave.open("music.wav", 'rb')
-
-	# create an audio object
-	p = pyaudio.PyAudio()
-
-	# open stream based on the wave object which has been input.
-	stream = p.open(format =
-		        p.get_format_from_width(wf.getsampwidth()),
-		        channels = wf.getnchannels(),
-		        rate = wf.getframerate(),
-		        output = True)
-
-	# read data (based on the chunk size)
-	data = wf.readframes(chunk)
-
-	# play stream (looping from beginning of file to the end)
-	while data != '':
-	    # writing to the stream is what *actually* plays the sound.
-	    stream.write(data)
-	    data = wf.readframes(chunk)
-
-	# cleanup stuff.
-	stream.close()    
-	p.terminate()
-
-t = Thread(target=audio, args=())
-t.start()
 myGate = gate.Gate()
+heightmap = generator.heightmaps()
 
-l0,l1,l2,anim = 1,1,1,1
-def right_click_event():
-	myGate.camera.center = [0,0,myGate.camera.center[2]+30]
-	print "right click event"
-	return
-def right_click_event_2():
-	myGate.camera.center = [0,0,myGate.camera.center[2]-30]
-	print "right click event"
-	return
+t = Thread(target=myGate.audio, args=())
+t.start()
 
-def light0(x,y):
-	global l0
-	l0 = 1-l0
-	if l0 == 0:
-		glDisable(GL_LIGHT0)
-	else:
-		glEnable(GL_LIGHT0)
-def light1(x,y):
-	global l1
-	l1 = 1-l1
-	if l1 == 0:
-		glDisable(GL_LIGHT1)
-	else:
-		glEnable(GL_LIGHT1)
-def light2(x,y):
-	global l2
-	l2 = 1-l2
-	if l2 == 0:
-		glDisable(GL_LIGHT2)
-	else:
-		glEnable(GL_LIGHT2)
-def animation(x,y):
-	global anim
-	anim = 1-anim
+character = [0,0]
 
-cumulative = 0
-def animate_f(timeval):
+forward_step = 0
+backward_step = 0
+right_step = 0
+
+mouse_x = 0
+mouse_y = 0
+
+
+once = True
+scale = 16
+
+waveTime = 0.0
+program = None
+def Animate(timeval):
 	
-	timeval = 0.00001
-	global anim
-	if anim == 0:
+	global forward_step, right_step, backward_step,mouse_x,mouse_y, once,scale, waveTime, program
+	random_creation()
+	if (once):
+		
+		#glEnable(GL_FOG)
+		fogColor = [0.1, 0.1, 0.1, 0.2]
+		glFogi(GL_FOG_MODE, GL_EXP)
+		glFogfv(GL_FOG_COLOR, fogColor)
+		glFogf(GL_FOG_DENSITY, 0.01)
+		program = shaders.init()
+		
+
+		myGate.camera.center = [generator.m/2,30.0,generator.m/2]
+		once = False
+		myGate.set_camera()
 		return
-	myGate.camera.center[1] = 2
-	global cumulative
-	cumulative += timeval*6000
-	go = myGate.gobject_list[5]
-	go.location = (3+math.cos(cumulative),go.location[1],go.location[2])
-	go = myGate.gobject_list[0]
-	go.location = (3+5*math.cos(cumulative),go.location[1],go.location[2])
+
+	waveTime += 0.0001
+	beta = 0
+	if (mouse_x - myGate.WIDTH/2.0) > 200:
+		beta = ((mouse_x - myGate.WIDTH/2.0)-200)/50.0
+		right_step = 1
+	elif (mouse_x - myGate.WIDTH/2.0) < -200:
+		right_step = -1
+		beta = ((-mouse_x + myGate.WIDTH/2.0)-200)/50.0
+	myGate.camera.look[1] = myGate.camera.center[1] + ((myGate.HEIGHT-mouse_y)*10.0/myGate.HEIGHT - 5)
+	(x,y,z) = myGate.camera.center
+	y+= 10
+
+	myGate.find_gobject("player_point_light").location = (x,y,z)
+	myGate.find_gobject("sky").location = (x+5,y-10,z)
+
+	r = 10
+	l = myGate.camera.look
+	c = myGate.camera.center
+
+
+	d1 = abs(heightmap[int(c[0])][int(c[2])]+2 - l[1])
+	d2 = abs(heightmap[int(c[0])][int(c[2])]+2 - c[1])
+
+	if d1 > 1:
+		d1 = 1
+	if d2 > 1: 
+		d2 = 1
 	
+	myGate.camera.look[1] = l[1]*0.9+0.1*(heightmap[int(c[0])][int(c[2])]+8)
+	myGate.camera.center[1] = c[1]*0.9 + 0.1*(heightmap[int(c[0])][int(c[2])]+8)
+
+	alpha = 0
+	if forward_step:
+		alpha = 0.08
+	if backward_step:
+		alpha = -0.08
+
+	temp =  [c[0]+alpha*(l[0]-c[0]),c[1],c[2]+alpha*(l[2]-c[2])]
+	if temp[0] > 0 and temp[2] > 0:
+		myGate.camera.center = [c[0]+alpha*(l[0]-c[0]),c[1],c[2]+alpha*(l[2]-c[2])]
+		myGate.camera.look = [l[0]+alpha*(l[0]-c[0]),l[1],l[2]+alpha*(l[2]-c[2])]
+		
+		
+	if right_step != 0:
+		alpha = -0.01*right_step*beta
+		dy = c[2] - l[2]
+		dx = l[0] - c[0]
+		theta = numpy.arctan2(dy,dx)
+		theta += alpha
+		myGate.camera.look[0] = c[0]+r*math.cos(theta)
+		myGate.camera.look[2] = c[2]-r*math.sin(theta)
+
+	right_step = 0
+
+def mouse_move(x,y):
+	global mouse_x, mouse_y
+	mouse_x = x
+	mouse_y = y
+
+def forward(x,y):
+	global forward_step
+	forward_step = 1
+	return
+def forward_stop(x,y):
+	global mouse_x, mouse_y
+
+	mouse_x = x
+	mouse_y = y
+	global forward_step
+	forward_step = 0
+	return
+def backward(x,y):
+	global backward_step
+	backward_step = 1
+	return
+def backward_stop(x,y):
+	global backward_step
+	backward_step = 0
 	return
 
-def draw_object1(gid,tid,name):
+def right_side(x,y):
+	global right_step
+	right_step = 1
+	return
+def right_side_stop(x,y):
+	global right_step
+	right_step = 0
+	return
+	
+def left_side(x,y):
+	global right_step
+	right_step = -1
+	return
+def left_side_stop(x,y):
+	global right_step
+	right_step = 0
+	return
+
+def dist(center, (i,h,j)):
+	x = center[0]
+	y = center[1]
+	z = center[2]
+
+	return math.sqrt((i-x)*(i-x)+(j-z)*(j-z))
+
+	
+	
+def draw_heightmap(gid,tid,name):
+	global scale
 	myGate.set_texture(tid)
-	glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, [50/256.0, 20/256.0, 20/256.0, 1.0])
-   	glMaterialfv(GL_FRONT, GL_SPECULAR, [0.1, 0.1, 0.1, 1])
-    	glMaterialfv(GL_FRONT, GL_SHININESS, [100.0])
-	glMaterialfv(GL_BACK, GL_AMBIENT_AND_DIFFUSE, [50/256.0, 50/256.0, 50/256.0, 1.0])
-	glShadeModel( GL_FLAT )
-	glutSolidSphere(1,20,20)
-
-def draw_object2(gid,tid,name):
-	glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, [20/256.0, 50/256.0, 20/256.0, 1.0])
-   	glMaterialfv(GL_FRONT, GL_SPECULAR, [1, 1, 1, 1])
-    	glMaterialfv(GL_FRONT, GL_SHININESS, [0.0])
-	glMaterialfv(GL_BACK, GL_AMBIENT_AND_DIFFUSE, [50/256.0, 50/256.0, 50/256.0, 1.0])
-	glShadeModel( GL_FLAT )
-	glutSolidCube(1)
-def draw_object3(gid,tid,name):
-	glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, [20/256.0, 20/256.0, 50/256.0, 1.0])
-	glMaterialfv(GL_BACK, GL_AMBIENT_AND_DIFFUSE, [50/256.0, 50/256.0, 50/256.0, 1.0])
-   	glMaterialfv(GL_FRONT, GL_SPECULAR, [1, 1, 1, 1])
-    	glMaterialfv(GL_FRONT, GL_SHININESS, [100.0])
+	glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, [60/256.0, 60/256.0, 60/256.0, 1.0])
+   	glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0, 0, 0, 0])
+    	glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, [0.0])
 	glShadeModel( GL_SMOOTH )
-	glutSolidTeapot(1)
-def draw_object4(gid,tid,name):
+	draw_size =15
+	glBegin(GL_TRIANGLES)
+	glColor3f(0,1,0)
+	glNormal3f(0,1,0)
+	for ii in range(int(myGate.camera.center[0]/scale-draw_size),int(myGate.camera.center[0]/scale+draw_size)):
+		for jj in range(int(myGate.camera.center[2]/scale-draw_size),int(myGate.camera.center[2]/scale+draw_size)):
+			i = scale*ii
+			j = scale*jj
+			if (i > 0 and j > 0 and i < generator.m-scale and j < generator.m-scale):
+				
+				a1 = 3.0
+				a2 = 30
+				a3 = a2/1.0
+				i1 = (i*a1 % a2)/a3
+				j1 = (j*a1 % a2)/a3
+				i2 = ((i+scale)*a1 % a2)/a3
+				j2 = ((j+scale)*a1 % a2)/a3
+				glTexCoord2f(i1,j1)
+				glVertex3f(i,heightmap[i][j],j)
+				glTexCoord2f(i2,j1)
+				glVertex3f(i+scale,heightmap[i+scale][j],j)
+				glTexCoord2f(i1,j2)
+				glVertex3f(i,heightmap[i][j+scale],j+scale)
+
+				glVertex3f(i,heightmap[i][j+scale],j+scale)
+				glTexCoord2f(i2,j1)
+				glVertex3f(i+scale,heightmap[i+scale][j],j)
+				glTexCoord2f(i2,j2)
+				glVertex3f(i+scale,heightmap[i+scale][j+scale],j+scale)
+
+	glEnd()
+
+def draw_sky(gid,tid,name):
+	
+	global lights_on, program, waveTime
+
+	shaders.enable()
+	loc=glGetUniformLocation(program,"waveTime")
+	glUniform1f(loc,waveTime)
+	if  not lights_on:
+		glDisable(GL_LIGHTING)
 	myGate.set_texture(tid)
+	glColor3f(0.6,0.6,0.6)
+	if not lights_on:
+		glScalef(220,220,220)
+	else:
+		glScalef(10,10,10)
+	l1 = 20
+	l2 = 20
+	pi = math.pi
+	for i in range(0, l1 + 1):
+		lat0 = pi * (-0.5 + float(float(i - 1) / float(l1)))
+		z0 = math.sin(lat0)
+		zr0 = math.cos(lat0)
 
-	glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, [60/256.0, 60/256.0, 60/256.0, 1.0])
-	glMaterialfv(GL_BACK, GL_AMBIENT_AND_DIFFUSE, [50/256.0, 50/256.0, 50/256.0, 1.0])
-   	glMaterialfv(GL_FRONT, GL_SPECULAR, [1, 1, 1, 1])
-    	glMaterialfv(GL_FRONT, GL_SHININESS, [100.0])
-	glShadeModel( GL_SMOOTH )
-	glutSolidTeapot(1)
+		lat1 = pi * (-0.5 + float(float(i) / float(l1)))
+		z1 = math.sin(lat1)
+		zr1 = math.cos(lat1)
 
-def draw_objecta(gid,tid,name):
-	if l0 == 0:
-		return
+		glBegin(GL_QUAD_STRIP)
+
+		for j in range(0, l2 + 1):
+			lng = 2 * pi * float(float(j - 1) / float(l2))
+			x = math.cos(lng)
+			y = math.sin(lng)
+			ss = (lng+0.0628)/(6.22+0.0628)
+			tt0 = (lat0+1.603)/(1.54+1.603)
+
+			max_picture_radius = 0.5
+			repeat = 10.0
+			if lights_on:
+				repeat = 1
+			glTexCoord2f((repeat)*math.cos(2*pi*ss)*tt0/2+0.5,(repeat)*math.sin(2*pi*ss)*tt0/2+0.5);
+			
+			tt1 = (lat1+1.603)/(1.54+1.603)
+			
+			glVertex3f(x * zr0, y * zr0, z0)
+			glTexCoord2f((repeat)*math.cos(2*pi*ss)*tt1/2+0.5,(repeat)*math.sin(2*pi*ss)*tt1/2+0.5);
+			glVertex3f(x * zr1, y * zr1, z1)
+
+		glEnd()
+	glScalef(1,1,1)
+	if  not lights_on:
+		glEnable(GL_LIGHTING)
+	shaders.disable()
+
+def draw_sphere(gid,tid,name):
+	
+	global lights_on
+	if  not lights_on:
+		glDisable(GL_LIGHTING)
+	myGate.set_texture(tid)
+	glColor3f(0.6,0.6,0.6)
+	if not lights_on:
+		glScalef(220,220,220)
+	else:
+		glScalef(10,10,10)
+	l1 = 20
+	l2 = 20
+	pi = math.pi
+	for i in range(0, l1 + 1):
+		lat0 = pi * (-0.5 + float(float(i - 1) / float(l1)))
+		z0 = math.sin(lat0)
+		zr0 = math.cos(lat0)
+
+		lat1 = pi * (-0.5 + float(float(i) / float(l1)))
+		z1 = math.sin(lat1)
+		zr1 = math.cos(lat1)
+
+		glBegin(GL_QUAD_STRIP)
+
+		for j in range(0, l2 + 1):
+			lng = 2 * pi * float(float(j - 1) / float(l2))
+			x = math.cos(lng)
+			y = math.sin(lng)
+			ss = (lng+0.0628)/(6.22+0.0628)
+			tt0 = (lat0+1.603)/(1.54+1.603)
+
+			max_picture_radius = 0.5
+			repeat = 10.0
+			if lights_on:
+				repeat = 1
+			glTexCoord2f((repeat)*math.cos(2*pi*ss)*tt0/2+0.5,(repeat)*math.sin(2*pi*ss)*tt0/2+0.5);
+			
+			tt1 = (lat1+1.603)/(1.54+1.603)
+			
+			glVertex3f(x * zr0, y * zr0, z0)
+			glTexCoord2f((repeat)*math.cos(2*pi*ss)*tt1/2+0.5,(repeat)*math.sin(2*pi*ss)*tt1/2+0.5);
+			glVertex3f(x * zr1, y * zr1, z1)
+
+		glEnd()
+	glScalef(1,1,1)
+	if  not lights_on:
+		glEnable(GL_LIGHTING)
+
+def draw_object_node(gid,tid,name):
 	glDisable(GL_LIGHTING)
 	glColor3f(1,0,0,1)
 	glutSolidSphere(0.1,20,20)
-	glEnable(GL_LIGHTING)	
-def draw_objectb(gid,tid,name):
-	
-	if l1 == 0:
-		return
-	glDisable(GL_LIGHTING)
-	glColor3f(1,1,1,1)
-	glutSolidSphere(0.1,20,20)
-	glEnable(GL_LIGHTING)	
-def draw_objectc(gid,tid,name):
-	
-	if l2 == 0:
-		return
-	glDisable(GL_LIGHTING)
-	glColor3f(1,1,0,1)
-	glutSolidSphere(0.1,20,20)
-	glEnable(GL_LIGHTING)		
+	glEnable(GL_LIGHTING)
 
-menu = [("zoom out",right_click_event),("zoom in",right_click_event_2)]
-keys = [("Key",'0',light0),("Key",'1',light1),("Key",'2',light2),("Key",'f',animation)]
-textures = ["earth.jpg","sun.jpg","mars.jpg","marble.jpg"]
+lights_on = False
+def draw_canvas(gid,tid,name):
+	global lights_on
+	myGate.set_texture(tid)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glColor3f(1,1,1)
+	lights_on = True
+	draw_sphere(gid,tid,name)
+	lights_on = False
 
-myGate.add_gobject(draw_objecta)
-myGate.add_gobject(draw_objectb)
-myGate.add_gobject(draw_objectc)
-myGate.add_gobject(draw_object1)
-myGate.add_gobject(draw_object2)
-myGate.add_gobject(draw_object3)
-myGate.add_gobject(draw_object4,tid=3)
-myGate.gobject_list[0].location = [3,3,0]
-myGate.gobject_list[1].location = [0,1,0]
-myGate.gobject_list[2].location = [0,0,3]
-myGate.gobject_list[3].location = [-3,0,0]
-myGate.gobject_list[4].location = [0,0,0]
-myGate.gobject_list[5].location = [3,0,0]
-myGate.gobject_list[6].location = [0,-5,0]
-light0 = gate.Data(location=(0,0,0),type="Point",color=(1,0,0),parent=myGate.gobject_list[0])
-light1 = gate.Data(location=(0,1,0),type="Spot",color=(1,1,1),parent=myGate.gobject_list[1])
-light2 = gate.Data(location=(0,0,3),type="Point",color=(1,1,0),parent=myGate.gobject_list[2])
-lights = [light0,light1,light2]
-myGate.add_animate(animate_f)
-myGate.foundation(menu,keys,textures,lights)
+def glut_print( x,  y,  font,  text, r,  g , b , a):
+
+    blending = False 
+    if glIsEnabled(GL_BLEND) :
+        blending = True
+
+    #glEnable(GL_BLEND)
+    glColor3f(1,1,1)
+    glWindowPos2f(x,y)
+    for ch in text :
+        glutBitmapCharacter( font , ctypes.c_int( ord(ch) ) )
+
+
+    if not blending :
+        glDisable(GL_BLEND) 
+
+def read_text(x,y):
+	global random_canvas
+	if (random_canvas == None) or (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) < 50):
+		print "HELLO"+str(random.random())
+		glMatrixMode(GL_PROJECTION)
+		glLoadIdentity()
+		gluOrtho2D(0.0, 1.0, 0.0, 1.0)
+		glMatrixMode(GL_MODELVIEW)
+		
+		glut_print( 10 , 10 , GLUT_BITMAP_9_BY_15 , "Hallo World" , 1.0 , 1.0 , 1.0 , 1.0 )
+		glMatrixMode(GL_PROJECTION)
+	
+import random
+random_canvas = None
+def random_creation():
+	global random_canvas
+
+	if (random_canvas != None):
+		x,y,z = random_canvas.location
+		myGate.find_gobject("canvas_point").location = (x,y+10,z)
+
+	if (random.random() < 0.01):
+		rx,ry = 0,0
+		while (abs(rx) < 5 or abs(ry) < 5):
+			rx = +50*random.random()-25
+			ry = +50*random.random()-25
+		rz = 10
+		rt = random.randint(0,10)
+		if (random_canvas == None) or (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) > 250):
+			
+			if random_canvas != None:
+				myGate.gobject_list.remove(random_canvas)
+			
+			myGate.add_gobject(draw_canvas,tid=2,name="canvas",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
+			location=(myGate.camera.center[0],heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],myGate.camera.center[2])	
+			random_canvas = myGate.find_gobject("canvas")
+
+		elif (random_canvas == None):
+			myGate.add_gobject(draw_canvas,tid=2,name="canvas",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
+			random_canvas = myGate.find_gobject("canvas")
+		
+def none_call(gid,tid,name):
+	pass
+def create_entities():
+	my_lights = []
+	myGate.add_gobject(none_call,tid=-1,name="canvas_point",location=(0,10,0),parent=None)
+	my_lights.append( gate.Data(location=(0,15,0),type="Point",color=(0.9,1,0.9),parent=myGate.find_gobject("canvas_point")) )
+	return my_lights
+
+menu = []
+keys = [("Key",'w',forward),("KeyUp",'w',forward_stop),("Key",'d',right_side),("KeyUp",'d',right_side_stop),("Key",'s',backward),("KeyUp",'s',backward_stop),("Key",'a',left_side),("Key",'e',read_text),("KeyUp",'a',left_side_stop),("Mouse","None",mouse_move),("MouseLeft","None",forward),("MouseRight","None",backward),("MouseLeftUp","None",forward_stop),("MouseRightUp","None",backward_stop)]
+textures = ["marble.jpg","starnight.jpg"]
+
+myGate.add_gobject(draw_object_node,name="player_point_light")
+myGate.add_gobject(draw_heightmap,tid=0,name="heightmap")
+myGate.add_gobject(draw_sky,tid=1,name="sky")
+light0 = gate.Data(location=(0,10,0),type="Point",color=(0.9,1,0.9),parent=myGate.find_gobject("player_point_light"))
+lights = create_entities()
+for t in range(10):
+	textures.append(str(t)+".jpg")
+myGate.add_animate(Animate)
+true_lights = [light0]
+for light in lights:
+	true_lights.append(light)
+
+myGate.foundation(menu,keys,textures,true_lights)
+
+# TO DO LIST
+
+# script to create polls that hold the lights (maybe minecraft lights on the air as boxes)
+# script to download images and text - DONE
+# script to create canvas model and place texture inside it
+# script to create interaction nodes
 
 
