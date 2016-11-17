@@ -12,8 +12,8 @@ import shaders
 myGate = gate.Gate()
 heightmap = generator.heightmaps()
 
-t = Thread(target=myGate.audio, args=())
-t.start()
+#t = Thread(target=myGate.audio, args=())
+#t.start()
 
 character = [0,0]
 
@@ -32,7 +32,8 @@ waveTime = 0.0
 program = None
 def Animate(timeval):
 	
-	global forward_step, right_step, backward_step,mouse_x,mouse_y, once,scale, waveTime, program
+	global forward_step, right_step, backward_step,mouse_x,mouse_y, once,scale, waveTime, program, text
+
 	random_creation()
 	if (once):
 		
@@ -41,7 +42,7 @@ def Animate(timeval):
 		glFogi(GL_FOG_MODE, GL_EXP)
 		glFogfv(GL_FOG_COLOR, fogColor)
 		glFogf(GL_FOG_DENSITY, 0.01)
-		program = shaders.init()
+		program = shaders.init()	
 		
 
 		myGate.camera.center = [generator.m/2,30.0,generator.m/2]
@@ -51,7 +52,12 @@ def Animate(timeval):
 
 	waveTime += 0.0001
 
-	
+	# Text function
+	if (text != None):
+		if text.a > 0:
+			text.a -= 0.001
+		text.x += 0.1
+
 	random_canvas = myGate.find_gobject("canvas")
 	if (random_canvas != None):
 		r = random_canvas.rotation
@@ -205,7 +211,7 @@ def draw_heightmap(gid,tid,name):
 def draw_sky(gid,tid,name):
 	
 	global lights_on, program, waveTime, once
-
+	
 	if (once != True):
 		shaders.enable()
 		loc=glGetUniformLocation(program,"waveTime")
@@ -335,33 +341,60 @@ def draw_canvas(gid,tid,name):
 	#draw_sphere(gid,tid,name)
 	lights_on = False
 
-def glut_print( x,  y,  font,  text, r,  g , b , a):
+text = None
+import codecs
+def quotation():
+	f = codecs.open("quotations.txt",encoding='utf-8' ,mode="r")
+	s = f.read()
+	q = s.split("\n")
+	r = random.choice(q)
+	# process q
+	A = -1
+	B = 0
+	ind = 0
+	rquotes = []
+	original = r
+	for i in range(80):
+		B = original[B:].find(" ")+ind
+		if (B == -1):
+			break
+		if (random.random() > 0.85):
+			
+			if (original[A+1:B] != ""):
+				rquotes.append(original[A+1:B])
+			A = B
+		B = B+1
+		ind = B
 
-    blending = False 
-    if glIsEnabled(GL_BLEND) :
-        blending = True
+	
+	rquotes.append(original[A:])
+	return rquotes
 
-    #glEnable(GL_BLEND)
-    glColor3f(1,1,1)
-    glWindowPos2f(x,y)
-    for ch in text :
-        glutBitmapCharacter( font , ctypes.c_int( ord(ch) ) )
-
-
-    if not blending :
-        glDisable(GL_BLEND) 
-
-def read_text(x,y):
-	global random_canvas
-	if (random_canvas == None) or (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) < 50):
-		print "HELLO"+str(random.random())
+def draw_text():
+	global text
+	if (text != None):
+		blending = False 
+		if glIsEnabled(GL_BLEND) :
+			blending = True
+		glEnable (GL_BLEND)
 		glMatrixMode(GL_PROJECTION)
+		glPushMatrix()
 		glLoadIdentity()
 		gluOrtho2D(0.0, 1.0, 0.0, 1.0)
 		glMatrixMode(GL_MODELVIEW)
-		
-		glut_print( 10 , 10 , GLUT_BITMAP_9_BY_15 , "Hallo World" , 1.0 , 1.0 , 1.0 , 1.0 )
+		glColor4f(text.r,text.g,text.b,text.a)
+		myGate.glut_print( text.x , text.y , GLUT_BITMAP_9_BY_15 , text.quote )
 		glMatrixMode(GL_PROJECTION)
+		glPopMatrix()
+		if not blending :
+			glDisable(GL_BLEND) 
+
+def read_text(x,y):
+	global random_canvas, text
+	if (random_canvas == None) or (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) < 50):
+		text = gate.Text()
+		text.quote = quotation()
+    		
 	
 import random
 random_canvas = None
@@ -374,9 +407,9 @@ def random_creation():
 
 	if (random.random() < 0.01):
 		rx,ry = 0,0
-		while (abs(rx) < 5 or abs(ry) < 5):
-			rx = +50*random.random()-25
-			ry = +50*random.random()-25
+		while (abs(rx) < 100 or abs(ry) < 100):
+			rx = +500*random.random()-250
+			ry = +500*random.random()-250
 		rz = 10
 		rt = random.randint(0,10)+2
 		if (random_canvas == None) or (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) > 250):
@@ -401,7 +434,8 @@ def create_entities():
 	return my_lights
 
 menu = []
-keys = [("Key",'w',forward),("KeyUp",'w',forward_stop),("Key",'d',right_side),("KeyUp",'d',right_side_stop),("Key",'s',backward),("KeyUp",'s',backward_stop),("Key",'a',left_side),("Key",'e',read_text),("KeyUp",'a',left_side_stop),("Mouse","None",mouse_move),("MouseLeft","None",forward),("MouseRight","None",backward),("MouseLeftUp","None",forward_stop),("MouseRightUp","None",backward_stop)]
+gui = [draw_text]
+keys = [("Key",'w',forward),("KeyUp",'w',forward_stop),("Key",'d',right_side),("KeyUp",'d',right_side_stop),("Key",'s',backward),("KeyUp",'s',backward_stop),("Key",'a',left_side),("Key",'e',read_text),("KeyUp",'a',left_side_stop),("Mouse","None",mouse_move),("MouseLeft","None",forward),("MouseMiddle","None",read_text),("MouseRight","None",backward),("MouseLeftUp","None",forward_stop),("MouseRightUp","None",backward_stop)]
 textures = ["marble.jpg","starnight.jpg"]
 
 myGate.add_gobject(draw_object_node,name="player_point_light")
@@ -416,7 +450,7 @@ true_lights = [light0]
 for light in lights:
 	true_lights.append(light)
 
-myGate.foundation(menu,keys,textures,true_lights)
+myGate.foundation(menu,keys,textures,gui,true_lights)
 
 # TO DO LIST
 

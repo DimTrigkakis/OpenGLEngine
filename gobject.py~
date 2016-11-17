@@ -27,7 +27,7 @@ class gObject(object):
 		
 	def draw(self):
 		glMatrixMode(GL_MODELVIEW)
-		glPushMatrix()
+		#glPushMatrix()
 		if self.light == False:
 			if self.parent != None:
 				self.parent.transform()
@@ -42,7 +42,7 @@ class gObject(object):
 					try:
 						self.draw_function(self.gid,self.tid,self.name)
 					except:
-						"OMG"					
+						pass #Black and white picture 					
 					glDisable(GL_TEXTURE_2D)
 				else:
 					self.draw_function(self.gid,self.tid,self.name)
@@ -55,6 +55,6 @@ class gObject(object):
 
 			glLightfv(GL_LIGHT0+self.lid, GL_POSITION, [location[0],location[1],location[2],1])
 
-		glPopMatrix()
+		#glPopMatrix()
 
 		return

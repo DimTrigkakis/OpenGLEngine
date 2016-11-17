@@ -21,110 +21,17 @@ class Camera(object):
 	up = None
 
 WIDTH = 1280
-HEIGHT = 960
+HEIGHT = 960	
 
-
-def MTL(filename):
-    contents = {}
-    mtl = None
-    for line in open(filename, "r"):
-        if line.startswith('#'): continue
-        values = line.split()
-        if not values: continue
-        if values[0] == 'newmtl':
-            mtl = contents[values[1]] = {}
-        elif mtl is None:
-            raise ValueError, "mtl file doesn't start with newmtl stmt"
-        elif values[0] == 'map_Kd':
-            # load the texture referred to by this declaration
-            mtl[values[0]] = values[1]
-            surf = pygame.image.load(mtl['map_Kd'])
-            image = pygame.image.tostring(surf, 'RGBA', 1)
-            ix, iy = surf.get_rect().size
-            texid = mtl['texture_Kd'] = glGenTextures(1)
-            glBindTexture(GL_TEXTURE_2D, texid)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                GL_LINEAR)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-                GL_LINEAR)
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ix, iy, 0, GL_RGBA,
-                GL_UNSIGNED_BYTE, image)
-        else:
-            mtl[values[0]] = map(float, values[1:])
-    return contents
-
-class OBJ:
-    def __init__(self, filename, swapyz=False):
-	
-        """Loads a Wavefront OBJ file. """
-        self.vertices = []
-        self.normals = []
-        self.texcoords = []
-        self.faces = []
- 
-        material = None
-        for line in open(filename, "r"):
-            if line.startswith('#'): continue
-            values = line.split()
-            if not values: continue
-            if values[0] == 'v':
-                v = map(float, values[1:4])
-                if swapyz:
-                    v = v[0], v[2], v[1]
-                self.vertices.append(v)
-            elif values[0] == 'vn':
-                v = map(float, values[1:4])
-                if swapyz:
-                    v = v[0], v[2], v[1]
-                self.normals.append(v)
-            elif values[0] == 'vt':
-                self.texcoords.append(map(float, values[1:3]))
-            elif values[0] in ('usemtl', 'usemat'):
-                material = values[1]
-            elif values[0] == 'mtllib':
-                self.mtl = MTL(values[1])
-            elif values[0] == 'f':
-                face = []
-                texcoords = []
-                norms = []
-                for v in values[1:]:
-                    w = v.split('/')
-                    face.append(int(w[0]))
-                    if len(w) >= 2 and len(w[1]) > 0:
-                        texcoords.append(int(w[1]))
-                    else:
-                        texcoords.append(0)
-                    if len(w) >= 3 and len(w[2]) > 0:
-                        norms.append(int(w[2]))
-                    else:
-                        norms.append(0)
-                self.faces.append((face, norms, texcoords, material))
-            
-    def draw(self):
-		print "HERE"
-		glEnable(GL_TEXTURE_2D)
-		glFrontFace(GL_CCW)
-		for face in self.faces:
-			vertices, normals, texture_coords, material = face
-
-			mtl = self.mtl[material]
-			if 'texture_Kd' in mtl:
-				# use diffuse texmap
-				glBindTexture(GL_TEXTURE_2D, mtl['texture_Kd'])
-			else:
-				# just use diffuse colour
-				glColor(*mtl['Kd'])
-
-			glBegin(GL_POLYGON)
-			for i in range(len(vertices)):
-				if normals[i] > 0:
-					glNormal3fv(self.normals[normals[i] - 1])
-				if texture_coords[i] > 0:
-			    		glTexCoord2fv(self.texcoords[texture_coords[i] - 1])
-				glVertex3fv(self.vertices[vertices[i] - 1])
-			glEnd()
-		glDisable(GL_TEXTURE_2D)
-		
+class Text(object):
+	r = 1
+	g = 1
+	b = 1
+	a = 1
+	quote = "No quote available"
+	def __init__(self):
+		self.x = random.randint(150,300)
+		self.y = random.randint(200,HEIGHT-200)
 
 class Gate(object):
 
@@ -149,7 +56,32 @@ class Gate(object):
 	lights = []
 	lid = 0
 
-	
+	def glut_print(self, x,  y,  font,  text_list):
+	    global HEIGHT
+	    fontname = "Arial.ttf"
+    	    fontsize = 14   
+	    glWindowPos2f(x,HEIGHT-y)
+	    yt = 0
+	    #glutBitmapString(GLUT_BITMAP_HELVETICA_12,text.encode('ascii'))
+	    for text in text_list:
+		    yt += 20
+	    	    glWindowPos2f(x,HEIGHT-(y+yt))
+		    for ch in text :
+			d = ord(ch)
+			if (d == 8217):
+				d = 39
+			if (d == 10):
+				continue
+			if (d < 0 or d > 128):
+				continue
+			#	(xx,yy) = glGetFloatv(GL_CURRENT_RASTER_POSITION)
+			#    	#glWindowPos2f(xx,yy+10)
+		    	#glWindowPos2f(xx,yy)
+		
+			glutBitmapCharacter( GLUT_BITMAP_HELVETICA_12 , ctypes.c_int( d ) )
+		    	#glutStrokeCharacter(GLUT_STROKE_ROMAN, ctypes.c_int(ord(ch)))
+
+
 
 	def window_init(self):
 		global WIDTH, HEIGHT
@@ -164,6 +96,7 @@ class Gate(object):
 	
 	def settings_init(self):
 		
+		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 		glEnable(GL_DEPTH_TEST)
 	
 	def light_init(self):
@@ -304,6 +237,8 @@ class Gate(object):
 				self.keys_list[i][2](x,y)
 			if self.keys_list[i][0] == "MouseRightUp" and button==GLUT_RIGHT_BUTTON and state==GLUT_UP:
 				self.keys_list[i][2](x,y)
+			if self.keys_list[i][0] == "MouseMiddle" and button==GLUT_MIDDLE_BUTTON and state==GLUT_DOWN:
+				self.keys_list[i][2](x,y)
 			
 		return 0
 	def key_functions(self,key,x,y):
@@ -327,7 +262,7 @@ class Gate(object):
 		for t in textures:
 			self.load_textures(t)
 
-	def foundation(self,menu_function_list=None, keys=None,textures=None,lights=None):
+	def foundation(self,menu_function_list=None, keys=None,textures=None,gui=None,lights=None):
 		self.window_init()
 		self.light_init()
 		self.settings_init()
@@ -337,6 +272,10 @@ class Gate(object):
 		self.set_keys(keys)
 		self.set_textures(textures)
 		self.set_lights(lights)
+
+		self.draw_text = None
+		if (gui != None):
+			self.draw_text = gui[0]
 
 		glutDisplayFunc(self.display)
 		glutIdleFunc(self.idle)            
@@ -378,10 +317,13 @@ class Gate(object):
 		self.set_camera()
 
 		glClearColor(0.0, 0.0, 0.0, 0.0 )
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
-
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT) 
+		
 		for go in self.gobject_list:
 			go.draw()
+
+		if (self.draw_text != None):
+			self.draw_text()
 
 		glutSwapBuffers()
 
@@ -535,6 +477,7 @@ class Gate(object):
 
 
 	def audio(self):
+		
 		chunk = 1024
 		wf = wave.open("music.wav", 'rb')
 

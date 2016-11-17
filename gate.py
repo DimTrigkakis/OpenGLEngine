@@ -21,7 +21,17 @@ class Camera(object):
 	up = None
 
 WIDTH = 1280
-HEIGHT = 960		
+HEIGHT = 960	
+
+class Text(object):
+	r = 1
+	g = 1
+	b = 1
+	a = 1
+	quote = "No quote available"
+	def __init__(self):
+		self.x = random.randint(150,300)
+		self.y = random.randint(200,HEIGHT-200)
 
 class Gate(object):
 
@@ -46,7 +56,30 @@ class Gate(object):
 	lights = []
 	lid = 0
 
-	
+	def glut_print(self, x,  y,  font,  text_list):
+	    global HEIGHT
+	    glWindowPos2f(x,HEIGHT-y)
+	    yt = 0
+	    #glutBitmapString(GLUT_BITMAP_HELVETICA_12,text.encode('ascii'))
+	    for text in text_list:
+		    yt += 20
+	    	    glWindowPos2f(x,HEIGHT-(y+yt))
+		    for ch in text :
+			d = ord(ch)
+			if (d == 8217):
+				d = 39
+			if (d == 10):
+				continue
+			if (d < 0 or d > 128):
+				continue
+			#	(xx,yy) = glGetFloatv(GL_CURRENT_RASTER_POSITION)
+			#    	#glWindowPos2f(xx,yy+10)
+		    	#glWindowPos2f(xx,yy)
+		
+			glutBitmapCharacter( GLUT_BITMAP_HELVETICA_12 , ctypes.c_int( d ) )
+		    	#glutStrokeCharacter(GLUT_STROKE_ROMAN, ctypes.c_int(ord(ch)))
+
+
 
 	def window_init(self):
 		global WIDTH, HEIGHT
@@ -61,6 +94,7 @@ class Gate(object):
 	
 	def settings_init(self):
 		
+		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 		glEnable(GL_DEPTH_TEST)
 	
 	def light_init(self):
@@ -201,6 +235,8 @@ class Gate(object):
 				self.keys_list[i][2](x,y)
 			if self.keys_list[i][0] == "MouseRightUp" and button==GLUT_RIGHT_BUTTON and state==GLUT_UP:
 				self.keys_list[i][2](x,y)
+			if self.keys_list[i][0] == "MouseMiddle" and button==GLUT_MIDDLE_BUTTON and state==GLUT_DOWN:
+				self.keys_list[i][2](x,y)
 			
 		return 0
 	def key_functions(self,key,x,y):
@@ -224,7 +260,7 @@ class Gate(object):
 		for t in textures:
 			self.load_textures(t)
 
-	def foundation(self,menu_function_list=None, keys=None,textures=None,lights=None):
+	def foundation(self,menu_function_list=None, keys=None,textures=None,gui=None,lights=None):
 		self.window_init()
 		self.light_init()
 		self.settings_init()
@@ -234,6 +270,10 @@ class Gate(object):
 		self.set_keys(keys)
 		self.set_textures(textures)
 		self.set_lights(lights)
+
+		self.draw_text = None
+		if (gui != None):
+			self.draw_text = gui[0]
 
 		glutDisplayFunc(self.display)
 		glutIdleFunc(self.idle)            
@@ -275,10 +315,13 @@ class Gate(object):
 		self.set_camera()
 
 		glClearColor(0.0, 0.0, 0.0, 0.0 )
-		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
-
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT) 
+		
 		for go in self.gobject_list:
 			go.draw()
+
+		if (self.draw_text != None):
+			self.draw_text()
 
 		glutSwapBuffers()
 
@@ -432,6 +475,7 @@ class Gate(object):
 
 
 	def audio(self):
+		
 		chunk = 1024
 		wf = wave.open("music.wav", 'rb')
 
