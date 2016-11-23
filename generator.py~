@@ -23,7 +23,7 @@ def heightmaps():
 			if heightmap[i][j] < minheight:
 
 				minheight = heightmap[i][j]
-	water_height = (7*average+minheight)/8.0
+	water_height = (5*average+minheight)/6.0
 
 
 	return heightmap, water_height

@@ -58,8 +58,6 @@ class Gate(object):
 
 	def glut_print(self, x,  y,  font,  text_list):
 	    global HEIGHT
-	    fontname = "Arial.ttf"
-    	    fontsize = 14   
 	    glWindowPos2f(x,HEIGHT-y)
 	    yt = 0
 	    #glutBitmapString(GLUT_BITMAP_HELVETICA_12,text.encode('ascii'))
