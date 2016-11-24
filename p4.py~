@@ -38,7 +38,7 @@ def Animate(timeval):
 	random_creation()
 	if (once):
 		
-		#glEnable(GL_FOG)
+		glEnable(GL_FOG)
 		fogColor = [0.1, 0.1, 0.1, 0.2]
 		glFogi(GL_FOG_MODE, GL_EXP)
 		glFogfv(GL_FOG_COLOR, fogColor)
@@ -186,7 +186,7 @@ def draw_snow(gid,tid,name):
 	glRotatef(waveTime,0,1,0)
 	glutSolidSphere(200,10,10)
 	#glutSolidSphere(60,10,10)
-	glutSolidSphere(30,10,10)
+	#glutSolidSphere(30,10,10)
 	glDisable(GL_BLEND)
 	glEnable(GL_DEPTH_TEST)
 	shaders.disable()

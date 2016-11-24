@@ -13,7 +13,7 @@ def heightmaps():
 			if (random.random() < 0.01):
 				g2 = (random.random()-0.5)
 			average = (heightmap[i][j-1]+heightmap[i-1][j]+heightmap[i-1][j-1])/3.0
-			heightmap[i][j] = (average)+(random.random()*1-0.5)+g2
+			heightmap[i][j] = (average*1.001)+(random.random()*1-0.5)+g2
 			
 
 	minheight = heightmap[1][1]
@@ -23,7 +23,7 @@ def heightmaps():
 			if heightmap[i][j] < minheight:
 
 				minheight = heightmap[i][j]
-	water_height = (5*average+minheight)/6.0
+	water_height = (7*average+minheight)/8.0
 
 
 	return heightmap, water_height
