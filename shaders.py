@@ -7,6 +7,7 @@ from OpenGL.GL import *
 # but fail with a meaningful message if something goes wrong
 program = None
 program2 = None
+program3 = None
 
 def createAndCompileShader(type,source):
     shader=glCreateShader(type)
@@ -23,7 +24,7 @@ def createAndCompileShader(type,source):
     return shader
 
 def init():
-	global program, program2
+	global program, program2, program3
 
 	vertex_shader=createAndCompileShader(GL_VERTEX_SHADER,"""
 	  
@@ -62,6 +63,59 @@ def init():
 
 	""");
 
+	vertex_shader_nothing=createAndCompileShader(GL_VERTEX_SHADER,"""
+	  
+	uniform float waveTime;
+	varying vec3 vTexCoord;
+
+	void main(void)
+	{
+
+	//Get Multitexturing coords...
+	gl_TexCoord[0] = gl_MultiTexCoord0;
+	gl_TexCoord[1] = gl_MultiTexCoord1;
+
+
+
+
+	    // Normal in Eye Space
+	    vec3 vEyeNormal = gl_NormalMatrix * gl_Normal;
+	    // Vertex position in Eye Space
+	    vec4 vVert4 = gl_ModelViewMatrix * gl_Vertex;
+	    vec3 vEyeVertex = normalize(vVert4.xyz / vVert4.w);
+	    vec4 vCoords = vec4(reflect(vEyeVertex, vEyeNormal), 0.0);
+	    // Rotate by flipped camera
+	    vCoords = gl_ModelViewMatrixInverse * vCoords;
+	    vTexCoord.xyz = normalize(vCoords.xyz);
+	    // Don't forget to transform the geometry!
+
+
+
+	  gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+
+	}
+
+	""");
+
+	fragment_shader_grass=createAndCompileShader(GL_FRAGMENT_SHADER,"""
+	
+	uniform sampler2D waveTextureId;
+	uniform sampler2D waveTextureIdRef;
+	uniform float waveTime;
+	varying vec3 vTexCoord;
+
+
+	void main()
+	{
+
+	   vec4 color1 = texture2D(waveTextureId, vec2(gl_TexCoord[0]));
+	   vec4 color2 = texture2D(waveTextureIdRef, vec2(vTexCoord));
+	   
+
+	   gl_FragColor = 0.6 * vec4(color1 + color2) * vec4(0.1, 1.00, 1.0, 0.50); 
+	}
+	""");
+
 	fragment_shader=createAndCompileShader(GL_FRAGMENT_SHADER,"""
 	
 	uniform sampler2D waveTextureId;
@@ -84,23 +138,13 @@ def init():
 	
 	fragment_shader_snow=createAndCompileShader(GL_FRAGMENT_SHADER,"""
 
-	// By @paulofalcao
-	//
-	// Merry Christmas! :)
-	//
-	//
-	// Some GLSL compilers/drivers can't optimize the exit from the loop on break
-	// and always run all iterations.
-	//
-	// Works very nice on my MacBook Pro with NVIDIA 320M on MacOSX 10.7 / Chrome
-	// But runs very very slow on a Macbook Pro NVIDIA 320M on Win7 / Chrome
-
 
 	#ifdef GL_ES
 	precision highp float;
 	#endif
 
 	uniform float waveTime;
+	uniform float vvv;
 
 	//Util Start
 
@@ -243,7 +287,7 @@ def init():
 	  vec3 c,p,n;
 	 
 	  float f=1.0;
-	  for(int i=0;i<30;i++){
+	  for(int i=0;i<5;i++){
 	    if (abs(s.x)<.001||f>maxd) break;
 	    f+=s.x;
 	    p=prp+scp*f;
@@ -254,16 +298,14 @@ def init():
 	      c=obj1_c(p);
 		c[0] += 0.5;
 		c[1] += 0.5;
-		gl_FragColor=vec4(c*max(1.0-f*.08,0.0),0.1);
+		gl_FragColor=vec4(c*max(1.0-f*.08,0.0),vvv);
 	      
 	  }
-	  else gl_FragColor=vec4(0,0,0,0.5); //background color
+	  else gl_FragColor=vec4(0,0,0,vvv); //background color
 	}
 
 
 	""");
-
-	# build shader program
 
 	program=glCreateProgram()
 	glAttachShader(program,vertex_shader)
@@ -273,17 +315,21 @@ def init():
 	glAttachShader(program2,vertex_shader)
 	glAttachShader(program2,fragment_shader_snow)
 	glLinkProgram(program2)
+	program3=glCreateProgram()
+	glAttachShader(program3,vertex_shader_nothing)
+	glAttachShader(program3,fragment_shader_grass)
+	glLinkProgram(program3)
 
-	# try to activate/enable shader program
-	# handle errors wisely
-	return program, program2
+	return program, program2,program3
 
 def enable(select):
 	try:
 	    if (select == 1):
 	    	glUseProgram(program)  
-	    else:
+	    elif (select == 2):
 	    	glUseProgram(program2)
+	    else:
+		glUseProgram(program3)
 	    
 	except OpenGL.error.GLError:
 	    print glGetProgramInfoLog(program)
