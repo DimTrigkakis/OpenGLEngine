@@ -29,13 +29,15 @@ program = None
 program2 = None
 program3 = None
 low = True
+score = 0
+score_max = 3.0
 
 # Generator
 heightmap, water_height = generator.heightmaps()
 
 def Animate(timeval):
 	
-	global forward_step, right_step, backward_step,mouse_x,mouse_y, once,scale, waveTime, program, program2, program3, text
+	global forward_step, right_step, backward_step,mouse_x,mouse_y, once,scale, waveTime, program, program2, program3, text, score_max
 
 	# Time variable
 	waveTime += 0.0001
@@ -87,6 +89,7 @@ def Animate(timeval):
 
 	l = myGate.camera.look
 	c = myGate.camera.center
+	special = 0
 
 	try:
 		d1 = abs(heightmap[int(c[0])][int(c[2])]+2 - l[1])
@@ -95,9 +98,11 @@ def Animate(timeval):
 			d1 = 1
 		if d2 > 1: 
 			d2 = 1
-	
-		myGate.camera.look[1] = l[1]*0.9+0.1*(max(water_height+0.75,heightmap[int(c[0])][int(c[2])]+8))
-		myGate.camera.center[1] = c[1]*0.9 + 0.1*(max(water_height+0.75,heightmap[int(c[0])][int(c[2])]+8))
+		if score < score_max:
+			myGate.camera.look[1] = l[1]*0.9+0.1*(max(water_height+0.75,heightmap[int(c[0])][int(c[2])]+8))
+			myGate.camera.center[1] = c[1]*0.9 + 0.1*(max(water_height+0.75,heightmap[int(c[0])][int(c[2])]+8))
+		
+
 	except:
 	
 		myGate.camera.look[1] = l[1]*0.9+0.1*(max(water_height+0.75,8))
@@ -408,7 +413,6 @@ def draw_object_node(gid,tid,name):
 lights_on = False
 def draw_canvas(gid,tid,name):
 	
-	global lights_on
 	myGate.set_texture(tid)
 	glColor3f(1,1,1)
 	lights_on = True
@@ -498,8 +502,6 @@ def draw_canvas(gid,tid,name):
 
 	glEnable(GL_LIGHTING)
 		
-	#draw_sphere(gid,tid,name)
-	lights_on = False
 
 text = None
 import codecs
@@ -531,8 +533,8 @@ def quotation():
 	return rquotes
 
 def draw_text():
-	global text
-	if (text != None):
+	global text,score
+	if (text != None and text.a > 0.1):
 		blending = False 
 		if glIsEnabled(GL_BLEND) :
 			blending = True
@@ -549,17 +551,121 @@ def draw_text():
 		if not blending :
 			glDisable(GL_BLEND) 
 
-def read_text(x,y):
-	global random_canvas, text
-	if (random_canvas == None) or (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) < 50):
-		text = gate.Text()
-		text.quote = quotation()
-    		
+	blending = False 
+	if glIsEnabled(GL_BLEND) :
+		blending = True
+	glEnable (GL_BLEND)
+	glMatrixMode(GL_PROJECTION)
+	glPushMatrix()
+	glLoadIdentity()
+	gluOrtho2D(0.0, 1.0, 0.0, 1.0)
+	glMatrixMode(GL_MODELVIEW)
+	glColor4f(1,1,1,1)
+	myGate.simple_print( 20 , 20 , GLUT_BITMAP_9_BY_15 , "score : "+str(score) + " / "+str(score_max) )
+	glMatrixMode(GL_PROJECTION)
+	glPopMatrix()
+	if not blending :
+		glDisable(GL_BLEND) 
 	
+def change_music():
+	# Audio
+	myGate.stop = 50
+	t = Thread(target=myGate.audio, args=())
+	t.start()
+
+def read_text(x,y):
+	global random_canvas, text, random_jukebox, score
+	
+	
+	if score > score_max:
+		myGate.camera.location[1] += 1.0
+
+	if (random_canvas != None) and (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) < 50):
+		if (random_canvas.once == True):
+			text = gate.Text()
+			text.quote = quotation()
+			random_canvas.once = False
+			score += 1
+	if (random_jukebox != None) and (dist(myGate.camera.center,(random_jukebox.location[0],random_jukebox.location[1],random_jukebox.location[2])) < 50):	
+		if (random_jukebox.once == True):
+			random_jukebox.once = False
+			change_music()
+			score += 1
+	
+def draw_jukebox(gid,tid,name):
+	myGate.set_texture(tid)
+	glColor3f(1,1,1)
+	glDisable(GL_LIGHTING)
+	glMatrixMode(GL_MODELVIEW)
+	ss = 5.0
+	dd = 5.0
+	myGate.set_texture(4)
+ 	glBegin(GL_QUADS)
+	glTexCoord2f(0,0)
+        glVertex3f( ss, ss,-dd)
+	glTexCoord2f(1,0)
+        glVertex3f(-ss, ss,-dd)
+	glTexCoord2f(1,1)
+        glVertex3f(-ss, ss, dd)
+	glTexCoord2f(0,1)
+        glVertex3f( ss, ss, dd) 
+ 
+	glTexCoord2f(0,0)
+        glVertex3f( ss,-ss, dd)
+	glTexCoord2f(1,0)
+        glVertex3f(-ss,-ss, dd)
+	glTexCoord2f(1,1)
+        glVertex3f(-ss,-ss,-dd)
+	glTexCoord2f(0,1)
+        glVertex3f( ss,-ss,-dd) 
+ 
+	glTexCoord2f(0,0)
+        glVertex3f( ss, ss, dd)
+	glTexCoord2f(1,0)
+        glVertex3f(-ss, ss, dd)
+	glTexCoord2f(1,1)
+        glVertex3f(-ss,-ss, dd)
+	glTexCoord2f(0,1)
+        glVertex3f( ss,-ss, dd)
+ 
+	glTexCoord2f(0,0)
+        glVertex3f( ss,-ss,-dd)
+	glTexCoord2f(1,0)
+        glVertex3f(-ss,-ss,-dd)
+	glTexCoord2f(1,1)
+        glVertex3f(-ss, ss,-dd)
+	glTexCoord2f(0,1)
+        glVertex3f( ss, ss,-dd)
+ 
+	glTexCoord2f(0,0)
+        glVertex3f(-ss, ss, dd) 
+	glTexCoord2f(1,0)
+        glVertex3f(-ss, ss,-dd)
+	glTexCoord2f(1,1)
+        glVertex3f(-ss,-ss,-dd) 
+	glTexCoord2f(0,1)
+        glVertex3f(-ss,-ss, dd) 
+ 
+	glTexCoord2f(0,0)
+        glVertex3f( ss, ss,-dd) 
+	glTexCoord2f(1,0)
+        glVertex3f( ss, ss, dd)
+	glTexCoord2f(1,1)
+        glVertex3f( ss,-ss, dd)
+	glTexCoord2f(0,1)
+        glVertex3f( ss,-ss,-dd)
+
+        glEnd()
+
+	glEnable(GL_LIGHTING)   		
+
 import random
 random_canvas = None
+random_jukebox = None
 def random_creation():
-	global random_canvas
+	global random_canvas, random_jukebox
+
+
 
 	if (random_canvas != None):
 		x,y,z = random_canvas.location
@@ -571,7 +677,7 @@ def random_creation():
 			rx = +500*random.random()-250
 			ry = +500*random.random()-250
 		rz = 10
-		rt = random.randint(0,10)+4
+		rt = random.randint(0,10)+5
 		if (random_canvas == None) or (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) > 250):
 			
 			if random_canvas != None:
@@ -583,23 +689,56 @@ def random_creation():
 			myGate.add_gobject(draw_canvas,tid=rt,name="canvas",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
 			location=(myGate.camera.center[0],heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],myGate.camera.center[2])	
 			random_canvas = myGate.find_gobject("canvas")
+			random_canvas.once = True
 
 		elif (random_canvas == None):
 			myGate.add_gobject(draw_canvas,tid=rt,name="canvas",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
 			random_canvas = myGate.find_gobject("canvas")
+			random_canvas.once = True
+
+	if (random_jukebox != None):
+		x,y,z = random_jukebox.location
+		myGate.find_gobject("jukebox_point").location = (x,y+10,z)
+
+	if (random.random() < 0.01):
+		rx,ry = 0,0
+		while (abs(rx) < 100 or abs(ry) < 100):
+			rx = +500*random.random()-250
+			ry = +500*random.random()-250
+		rz = 10
+		if (random_jukebox == None) or (dist(myGate.camera.center,(random_jukebox.location[0],random_jukebox.location[1],random_jukebox.location[2])) > 250):
+			
+			if random_jukebox != None:
+				if len(myGate.gobject_list) != 0:
+					myGate.gobject_list.remove(random_jukebox)
+				else:
+					random_jukebox = None
+			
+			myGate.add_gobject(draw_jukebox,tid=4,name="jukebox",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
+			location=(myGate.camera.center[0],heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],myGate.camera.center[2])	
+			random_jukebox = myGate.find_gobject("jukebox")
+			random_jukebox.once = True
+
+		elif (random_canvas == None):
+			myGate.add_gobject(draw_jukebox,tid=4,name="jukebox",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
+			random_jukebox = myGate.find_gobject("jukebox")
+			random_jukebox.once = True
 		
 def none_call(gid,tid,name):
 	pass
+
 def create_entities():
 	my_lights = []
 	myGate.add_gobject(none_call,tid=-1,name="canvas_point",location=(0,10,0),parent=None)
+	myGate.add_gobject(none_call,tid=-1,name="jukebox_point",location=(0,10,0),parent=None)
 	my_lights.append( gate.Data(location=(0,15,0),type="Point",color=(0.9,1,0.9),parent=myGate.find_gobject("canvas_point")) )
+	my_lights.append( gate.Data(location=(0,15,0),type="Point",color=(0.9,1,0.9),parent=myGate.find_gobject("jukebox_point")) )
 	return my_lights
 
 menu = []
 gui = [draw_text]
 keys = [("Key",'w',forward),("KeyUp",'w',forward_stop),("Key",'d',right_side),("KeyUp",'d',right_side_stop),("Key",'s',backward),("KeyUp",'s',backward_stop),("Key",'a',left_side),("Key",'e',read_text),("KeyUp",'a',left_side_stop),("Mouse","None",mouse_move),("MouseLeft","None",forward),("MouseMiddle","None",read_text),("MouseRight","None",backward),("MouseLeftUp","None",forward_stop),("MouseRightUp","None",backward_stop)]
-textures = ["grass.jpg","starnight.jpg","water.jpg","wood.jpg"]
+textures = ["grass.jpg","starnight.jpg","water.jpg","wood.jpg","jukebox.jpg"]
 
 myGate.add_gobject(draw_object_node,name="player_point_light")
 myGate.add_gobject(draw_heightmap,tid=0,name="heightmap")
@@ -619,9 +758,6 @@ for light in lights:
 
 myGate.foundation(menu,keys,textures,gui,true_lights)
 
-# TODO
-
-# random geometries with shaders
 
 
 

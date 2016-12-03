@@ -35,6 +35,7 @@ class Text(object):
 
 class Gate(object):
 
+	stop = 0 # make this a high number for music to stop
 	name = 'OGRE' # OpenGlRenderingEngine ~ OGRE
 	fps = 60 
 	HEIGHT = 0
@@ -55,6 +56,15 @@ class Gate(object):
 
 	lights = []
 	lid = 0
+
+	def simple_print(self, x,  y,  font,  text_list):
+	    global HEIGHT
+	    glWindowPos2f(x,HEIGHT-y)
+	    for text in text_list:
+		    for ch in text :
+			d = ord(ch)
+		
+			glutBitmapCharacter( GLUT_BITMAP_HELVETICA_12 , ctypes.c_int( d ) )
 
 	def glut_print(self, x,  y,  font,  text_list):
 	    global HEIGHT
@@ -473,11 +483,18 @@ class Gate(object):
 		return vertices,edges,triangles
 
 
-
+	composition = 0
 	def audio(self):
-		
+		while (self.stop > 0.0001):
+			self.stop -= 0.0001
+			continue
 		chunk = 1024
-		wf = wave.open("music.wav", 'rb')
+		wf = None
+		if (self.composition == 0):
+			wf = wave.open("music.wav", 'rb')
+		else:
+			wf = wave.open("composition.wav", 'rb')
+		self.composition = 1-self.composition
 
 		# create an audio object
 		p = pyaudio.PyAudio()
@@ -495,6 +512,8 @@ class Gate(object):
 		# play stream (looping from beginning of file to the end)
 		while data != '':
 		    # writing to the stream is what *actually* plays the sound.
+		    if self.stop > 0.0001:
+			break
 		    stream.write(data)
 		    data = wf.readframes(chunk)
 
