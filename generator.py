@@ -31,12 +31,13 @@ def heightmaps():
 quotations = ""
 def aesthetic_style():
 	global quotations
-	maxi = 10
+	maxi = 30
 	i = 0
 	j = 0
-	maxj = 10
+	maxj = 30
 	print "Downloading aesthetics"	
 	while (j < maxj):
+		print "j=",j
 		response2 = urllib2.urlopen("https://en.wikiquote.org/wiki/Special:Random")
 		site2 = response2.geturl()
 		response2 = urllib2.urlopen(site2)
@@ -56,6 +57,7 @@ def aesthetic_style():
 	f.write(quotations)
 	f.close()
 	while (i < maxi):
+		print "i=",i
 		response = urllib2.urlopen("https://en.wikipedia.org/wiki/Special:Random")
 		site = response.geturl()
 

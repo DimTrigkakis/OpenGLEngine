@@ -80,8 +80,8 @@ def init():
 	    vTexCoord.xyz = normalize(vCoords.xyz);
 
 	  gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
-	  gl_Position[0] += (sin(gl_TexCoord[0].x*waveTime*20.0))*50.0;
-	  gl_Position[1] += (cos(gl_TexCoord[0].y*waveTime*20.0))*50.0;
+	  gl_Position[0] += (sin(gl_TexCoord[0].x)+cos(gl_TexCoord[0].y))*50.0;//*sin(waveTime*20.0)))*50.0;
+	  gl_Position[1] += (sin(gl_TexCoord[1].x)+cos(gl_TexCoord[1].y))*50.0;//*cos(waveTime*20.0)))*50.0;
 
 	}
 

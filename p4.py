@@ -11,10 +11,6 @@ import shaders
 
 myGate = gate.Gate()
 
-# Audio
-t = Thread(target=myGate.audio, args=())
-t.start()
-
 # Init variables
 character = [0,0]
 forward_step = 0
@@ -28,7 +24,7 @@ waveTime = 0.0
 program = None
 program2 = None
 program3 = None
-low = True
+low = False
 score = 0
 score_max = 5
 # Generator
@@ -434,7 +430,7 @@ def draw_canvas(gid,tid,name):
 	lights_on = True
 	glDisable(GL_LIGHTING)
 	glBegin(GL_TRIANGLE_STRIP)
-	dwd = 1.001
+	dwd = 1.01
 	glTexCoord2f(0,0)
 	glVertex3f(-4,-4,dwd)
 	glTexCoord2f(0,1)
@@ -713,7 +709,7 @@ def random_creation():
 			rx = +500*random.random()-250
 			ry = +500*random.random()-250
 		rz = 10
-		rt = random.randint(0,10)+5
+		rt = random.randint(0,30)+5
 		if (random_canvas == None) or (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) > 250):
 			
 			if random_canvas != None:
@@ -814,7 +810,7 @@ myGate.add_gobject(draw_snow,tid=-1,name="snow")
 light0 = gate.Data(location=(0,10,0),type="Point",color=(0.9,1,0.9),parent=myGate.find_gobject("player_point_light"))
 lights = create_entities()
 
-for t in range(10):
+for t in range(30):
 	textures.append(str(t)+".jpg")
 
 myGate.add_animate(Animate)
@@ -822,6 +818,9 @@ true_lights = [light0]
 for light in lights:
 	true_lights.append(light)
 
+# Audio
+t = Thread(target=myGate.audio, args=())
+t.start()
 myGate.foundation(menu,keys,textures,gui,true_lights)
 
 
