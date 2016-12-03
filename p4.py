@@ -30,7 +30,7 @@ program2 = None
 program3 = None
 low = True
 score = 0
-score_max = 0
+score_max = 5
 # Generator
 heightmap, water_height = generator.heightmaps()
 
