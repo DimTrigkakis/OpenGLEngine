@@ -8,6 +8,7 @@ from OpenGL.GL import *
 program = None
 program2 = None
 program3 = None
+program4 = None
 
 def createAndCompileShader(type,source):
     shader=glCreateShader(type)
@@ -34,30 +35,53 @@ def init():
 	void main(void)
 	{
 
-	//Get Multitexturing coords...
 	gl_TexCoord[0] = gl_MultiTexCoord0;
 	gl_TexCoord[1] = gl_MultiTexCoord1;
 
 
-	//Move the water...
 	gl_TexCoord[0].x += waveTime;
 	gl_TexCoord[0].y += waveTime-2.0; //Make the water move direction vary a little.
 
 
-	    // Normal in Eye Space
 	    vec3 vEyeNormal = gl_NormalMatrix * gl_Normal;
-	    // Vertex position in Eye Space
 	    vec4 vVert4 = gl_ModelViewMatrix * gl_Vertex;
 	    vec3 vEyeVertex = normalize(vVert4.xyz / vVert4.w);
 	    vec4 vCoords = vec4(reflect(vEyeVertex, vEyeNormal), 0.0);
-	    // Rotate by flipped camera
 	    vCoords = gl_ModelViewMatrixInverse * vCoords;
 	    vTexCoord.xyz = normalize(vCoords.xyz);
-	    // Don't forget to transform the geometry!
-
 
 
 	  gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+
+	}
+
+	""");
+	vertex_shader_sphere=createAndCompileShader(GL_VERTEX_SHADER,"""
+	  
+	uniform float waveTime;
+	varying vec3 vTexCoord;
+
+	void main(void)
+	{
+
+	gl_TexCoord[0] = gl_MultiTexCoord0;
+	gl_TexCoord[1] = gl_MultiTexCoord1;
+
+
+	gl_TexCoord[0].x += waveTime;
+	gl_TexCoord[0].y += waveTime-2.0; //Make the water move direction vary a little.
+
+
+	    vec3 vEyeNormal = gl_NormalMatrix * gl_Normal;
+	    vec4 vVert4 = gl_ModelViewMatrix * gl_Vertex;
+	    vec3 vEyeVertex = normalize(vVert4.xyz / vVert4.w);
+	    vec4 vCoords = vec4(reflect(vEyeVertex, vEyeNormal), 0.0);
+	    vCoords = gl_ModelViewMatrixInverse * vCoords;
+	    vTexCoord.xyz = normalize(vCoords.xyz);
+
+	  gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+	  gl_Position[0] += (sin(gl_TexCoord[0].x*waveTime*20.0))*50.0;
+	  gl_Position[1] += (cos(gl_TexCoord[0].y*waveTime*20.0))*50.0;
 
 	}
 
@@ -71,23 +95,17 @@ def init():
 	void main(void)
 	{
 
-	//Get Multitexturing coords...
 	gl_TexCoord[0] = gl_MultiTexCoord0;
 	gl_TexCoord[1] = gl_MultiTexCoord1;
 
 
 
-
-	    // Normal in Eye Space
 	    vec3 vEyeNormal = gl_NormalMatrix * gl_Normal;
-	    // Vertex position in Eye Space
 	    vec4 vVert4 = gl_ModelViewMatrix * gl_Vertex;
 	    vec3 vEyeVertex = normalize(vVert4.xyz / vVert4.w);
 	    vec4 vCoords = vec4(reflect(vEyeVertex, vEyeNormal), 0.0);
-	    // Rotate by flipped camera
 	    vCoords = gl_ModelViewMatrixInverse * vCoords;
 	    vTexCoord.xyz = normalize(vCoords.xyz);
-	    // Don't forget to transform the geometry!
 
 
 
@@ -316,8 +334,8 @@ def init():
 	glAttachShader(program2,fragment_shader_snow)
 	glLinkProgram(program2)
 	program3=glCreateProgram()
-	glAttachShader(program3,vertex_shader_nothing)
-	glAttachShader(program3,fragment_shader_grass)
+	glAttachShader(program3,vertex_shader_sphere)
+	glAttachShader(program3,fragment_shader)
 	glLinkProgram(program3)
 
 	return program, program2,program3

@@ -30,8 +30,7 @@ program2 = None
 program3 = None
 low = True
 score = 0
-score_max = 3.0
-
+score_max = 0
 # Generator
 heightmap, water_height = generator.heightmaps()
 
@@ -76,7 +75,7 @@ def Animate(timeval):
 		beta = ((-mouse_x + myGate.WIDTH/2.0)-200)/50.0
 
 	# Adapt height of camera lookat based on mouse y
-	myGate.camera.look[1] = myGate.camera.center[1] + ((myGate.HEIGHT-mouse_y)*10.0/myGate.HEIGHT - 5)
+	myGate.camera.look[1] = myGate.camera.center[1] + ((myGate.HEIGHT-mouse_y)*20.0/myGate.HEIGHT - 15)
 	
 	# Sky, snow and player point light have to adapt to the y location
 	(x,y,z) = myGate.camera.center
@@ -120,6 +119,10 @@ def Animate(timeval):
 	if temp[0] > 0 and temp[2] > 0:
 		myGate.camera.center = [c[0]+alpha*(l[0]-c[0]),c[1],c[2]+alpha*(l[2]-c[2])]
 		myGate.camera.look = [l[0]+alpha*(l[0]-c[0]),l[1],l[2]+alpha*(l[2]-c[2])]
+		if (score >= score_max):
+			temp =  [c[0]+alpha*(l[0]-c[0]),c[1]+alpha*(l[1]-c[1]),c[2]+alpha*(l[2]-c[2])]
+			myGate.camera.center = [c[0]+alpha*(l[0]-c[0]),c[1]+alpha*(l[1]-c[1]),c[2]+alpha*(l[2]-c[2])]
+			myGate.camera.look = [l[0]+alpha*(l[0]-c[0]),l[1]+alpha*(l[1]-c[1]),l[2]+alpha*(l[2]-c[2])]
 		
 	r = 10
 	if right_step != 0:
@@ -234,6 +237,12 @@ def draw_water(gid,tid,name):
 			j = scale*jj
 			j1 = (j*a1 % a2)/a3
 			j2 = ((j+scale)*a1 % a2)/a3
+
+			ifinal = i-myGate.camera.center[0]
+			jfinal = j-myGate.camera.center[2]
+			if (math.sqrt(ifinal**2+jfinal**2)) > draw_size*scale:
+				continue
+
 			if (i > 0 and j > 0 and i < generator.m-scale and j < generator.m-scale):
 				
 				glTexCoord2f(i1,j1)
@@ -275,11 +284,18 @@ def draw_heightmap(gid,tid,name):
 		i1 = (i*a1 % a2)/a3
 		i2 = ((i+scale)*a1 % a2)/a3
 		for jj in range(int(myGate.camera.center[2]/scale-draw_size),int(myGate.camera.center[2]/scale+draw_size)):
-							
+				
+			
+			
 			j = scale*jj
 			j1 = (j*a1 % a2)/a3
 			j2 = ((j+scale)*a1 % a2)/a3
 
+			ifinal = i-myGate.camera.center[0]
+			jfinal = j-myGate.camera.center[2]
+			if (math.sqrt(ifinal**2+jfinal**2)) > draw_size*scale:
+				continue
+			
 			if (i > 0 and j > 0 and i < generator.m-scale and j < generator.m-scale):
 				glTexCoord2f(i1,j1)
 				glVertex3f(i,heightmap[i][j],j)
@@ -576,9 +592,6 @@ def change_music():
 def read_text(x,y):
 	global random_canvas, text, random_jukebox, score
 	
-	
-	if score > score_max:
-		myGate.camera.location[1] += 1.0
 
 	if (random_canvas != None) and (dist(myGate.camera.center,(random_canvas.location[0],random_canvas.location[1],random_canvas.location[2])) < 50):
 		if (random_canvas.once == True):
@@ -591,7 +604,29 @@ def read_text(x,y):
 			random_jukebox.once = False
 			change_music()
 			score += 1
-	
+	if (random_geometry != None) and (dist(myGate.camera.center,(random_geometry.location[0],random_geometry.location[1],random_geometry.location[2])) < 50):	
+		if (random_geometry.once == True):
+			random_geometry.once = False
+			score += 1
+def draw_geometry(gid, tid, name):
+	global shaders, waveTime, lights_on
+	tid = 1
+	myGate.set_texture(1)
+	if (once != True):
+		shaders.enable(3)
+		loc=glGetUniformLocation(program,"waveTime")
+		glUniform1f(loc,10*waveTime)
+	glShadeModel( GL_SMOOTH )
+	glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, [60/256.0, 60/256.0, 60/256.0, 1.0])
+   	glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0, 0, 0, 0])
+    	glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, [0.0])
+	lights_on = True
+	draw_sphere(gid,tid,name)
+	lights_on = False
+	glShadeModel( GL_FLAT )
+	shaders.disable()
+	return	
+
 def draw_jukebox(gid,tid,name):
 	myGate.set_texture(tid)
 	glColor3f(1,1,1)
@@ -662,8 +697,9 @@ def draw_jukebox(gid,tid,name):
 import random
 random_canvas = None
 random_jukebox = None
+random_geometry = None
 def random_creation():
-	global random_canvas, random_jukebox
+	global random_canvas, random_jukebox, random_geometry
 
 
 
@@ -719,10 +755,38 @@ def random_creation():
 			random_jukebox = myGate.find_gobject("jukebox")
 			random_jukebox.once = True
 
-		elif (random_canvas == None):
+		elif (random_jukebox == None):
 			myGate.add_gobject(draw_jukebox,tid=4,name="jukebox",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
 			random_jukebox = myGate.find_gobject("jukebox")
 			random_jukebox.once = True
+
+	if (random_geometry != None):
+		x,y,z = random_geometry.location
+		myGate.find_gobject("geometry_point").location = (x,y+10,z)
+
+	if (random.random() < 0.01):
+		rx,ry = 0,0
+		while (abs(rx) < 100 or abs(ry) < 100):
+			rx = +500*random.random()-250
+			ry = +500*random.random()-250
+		rz = 10
+		if (random_geometry == None) or (dist(myGate.camera.center,(random_geometry.location[0],random_geometry.location[1],random_geometry.location[2])) > 250):
+			
+			if random_geometry != None:
+				if len(myGate.gobject_list) != 0:
+					myGate.gobject_list.remove(random_geometry)
+				else:
+					random_geometry = None
+			
+			myGate.add_gobject(draw_geometry,tid=-1,name="geometry",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
+			location=(myGate.camera.center[0],heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],myGate.camera.center[2])	
+			random_geometry = myGate.find_gobject("geometry")
+			random_geometry.once = True
+
+		elif (random_geometry == None):
+			myGate.add_gobject(draw_geometry,tid=-1,name="geometry",location=(myGate.camera.center[0]+rx,rz+heightmap[int(myGate.camera.center[0])][int(myGate.camera.center[2])],ry+myGate.camera.center[2]))
+			random_geometry = myGate.find_gobject("geometry")
+			random_geometry.once = True
 		
 def none_call(gid,tid,name):
 	pass
@@ -731,8 +795,10 @@ def create_entities():
 	my_lights = []
 	myGate.add_gobject(none_call,tid=-1,name="canvas_point",location=(0,10,0),parent=None)
 	myGate.add_gobject(none_call,tid=-1,name="jukebox_point",location=(0,10,0),parent=None)
+	myGate.add_gobject(none_call,tid=-1,name="geometry_point",location=(0,10,0),parent=None)
 	my_lights.append( gate.Data(location=(0,15,0),type="Point",color=(0.9,1,0.9),parent=myGate.find_gobject("canvas_point")) )
 	my_lights.append( gate.Data(location=(0,15,0),type="Point",color=(0.9,1,0.9),parent=myGate.find_gobject("jukebox_point")) )
+	my_lights.append( gate.Data(location=(0,15,0),type="Point",color=(0.9,1,0.9),parent=myGate.find_gobject("geometry_point")) )
 	return my_lights
 
 menu = []
